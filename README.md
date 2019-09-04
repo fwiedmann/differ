@@ -2,14 +2,14 @@
 
 # differ
 
-Kubernetes operater differentiate images of running container in clusters against the source registry
+Kubernetes controller differentiate images of running container in clusters namespaces against the source registry
 
 ## Concept
 
 ### Features
 
--   Configuration via CRDs
-    -   Configure for 1-n kubernetes namespaces
+-   Configuration via ConfigMap
+    -   Configure for 1 kubernetes namespaces
     -   Enable metrics y/n
     -   Exclude images
     -   regex pattern for exclude image versions
