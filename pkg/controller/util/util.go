@@ -5,7 +5,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func InitKubernetesClient(namespace string) (*kubernetes.Clientset, error) {
+func InitKubernetesClient() (*kubernetes.Clientset, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return &kubernetes.Clientset{}, err

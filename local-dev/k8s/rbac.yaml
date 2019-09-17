@@ -3,8 +3,9 @@ kind: Role
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
   name: differ-reader
+  namespace: default
 rules:
-- apiGroups: [""]
+- apiGroups: ["apps"]
   resources: ["deployments", "replicasets", "pods"]
   verbs: ["*"] 
 ---
@@ -17,6 +18,7 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: service-account-rolebinding
+  namespace: default
 subjects:
 - kind: ServiceAccount
   name: differ
