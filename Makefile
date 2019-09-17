@@ -1,3 +1,5 @@
+clustername=differ-cluster
+
 all: cluster_bootstrap
 
 install_kind:
@@ -6,7 +8,18 @@ install_kind:
 	sudo mv ./kind /usr/local/bin/kind
 
 cluster_bootstrap:
-	kind create cluster --config local_cluster.yaml --wait 5m --name differ-cluster
+	kind create cluster --config local-dev/local_cluster.yaml --wait 5m --name $(clustername)
 
 cluster_delete:
 	kind delete cluster --name differ-cluster
+
+build: 
+	CGO_ENABLED=0 go build -o differ
+	docker build -t differ:dev .
+
+cluster_load_image:
+	kind load docker-image differ:dev --name $(clustername)
+
+cluster_deploy: build cluster_load_image
+
+	KUBECONFIG="$$(kind get kubeconfig-path --name="differ-cluster")" kubectl apply -f local-dev/k8s
