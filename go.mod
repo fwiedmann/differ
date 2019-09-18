@@ -3,8 +3,12 @@ module github.com/fwiedmann/differ
 go 1.13
 
 require (
+	github.com/antonfisher/nested-logrus-formatter v1.0.2
 	github.com/gogo/protobuf v1.3.0 // indirect
+	github.com/google/martian v2.1.0+incompatible
 	github.com/googleapis/gnostic v0.3.1 // indirect
+	github.com/sirupsen/logrus v1.4.2
+	github.com/spf13/cobra v0.0.5
 	golang.org/x/crypto v0.0.0-20190911031432-227b76d455e7 // indirect
 	golang.org/x/net v0.0.0-20190916140828-c8589233b77d // indirect
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45 // indirect

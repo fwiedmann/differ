@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: differ-deployment
+  annotations:
+    differ/active: "true"
 spec:
   selector:
     matchLabels:
@@ -15,6 +17,7 @@ spec:
       containers:
       - name: differ
         image: differ:dev
+        args: ["--loglevel","debug"]
         ports:
         - containerPort: 8080
         imagePullPolicy: Never
@@ -38,6 +41,7 @@ metadata:
 data:
   config.yaml: |
     namespace: "default"
+    controllerSleep: "10s"
     remotes:
       - provider: github
         reponame: foo

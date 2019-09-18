@@ -4,6 +4,7 @@ import (
 	"github.com/fwiedmann/differ/pkg/controller/util"
 	"github.com/fwiedmann/differ/pkg/opts"
 	"github.com/fwiedmann/differ/pkg/scraper/appv1scraper"
+	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -12,7 +13,7 @@ var (
 )
 
 type scraper interface {
-	GetWorkloadRessources(c *kubernetes.Clientset, namespace string, scrapedResources map[string][]string) error
+	GetWorkloadRessources(c *kubernetes.Clientset, namespace string, scrapedResources map[string]map[string]map[string]string) error
 }
 
 type Controller struct {
@@ -26,20 +27,24 @@ func New(c *opts.ControllerConfig) *Controller {
 }
 
 func (c *Controller) Run() error {
-	scrapeResult := map[string][]string{}
+	for {
 
-	kubernetesClient, err := util.InitKubernetesClient()
-	if err != nil {
-		return err
-	}
+		scrapeResult := make(map[string]map[string]map[string]string)
 
-	for _, scraper := range scrapers {
-		if err := scraper.GetWorkloadRessources(kubernetesClient, c.confing.Namespace, scrapeResult); err != nil {
+		kubernetesClient, err := util.InitKubernetesClient()
+		if err != nil {
 			return err
 		}
-	}
 
-	return nil
+		for _, scraper := range scrapers {
+			if err := scraper.GetWorkloadRessources(kubernetesClient, c.confing.Namespace, scrapeResult); err != nil {
+				return err
+			}
+		}
+		log.Debug(scrapeResult)
+
+		c.confing.ControllerSleep()
+	}
 }
 func init() {
 	scrapers = append(scrapers, appv1scraper.Deployment{})

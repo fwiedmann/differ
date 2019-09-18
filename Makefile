@@ -1,8 +1,9 @@
-clustername=differ-cluster
+clustername = differ-cluster
+export KUBECONFIG = $$(kind get kubeconfig-path --name="differ-cluster")
 
-all: cluster_bootstrap
+all: cluster_deploy
 
-install_kind:
+install_kind: 
 	curl -Lo ./kind https://github.com/kubernetes-sigs/kind/releases/download/v0.5.1/kind-$$(uname)-amd64
 	chmod +x ./kind
 	sudo mv ./kind /usr/local/bin/kind
@@ -21,6 +22,5 @@ cluster_load_image:
 	kind load docker-image differ:dev --name $(clustername)
 
 cluster_deploy: build cluster_load_image
-	export KUBECONFIG="$$(kind get kubeconfig-path --name="differ-cluster")"
-	kubectl delete -f local-dev/k8s
-	kubectl apply -f local-dev/k8s
+	KUBECONFIG="$$(kind get kubeconfig-path --name="differ-cluster")" kubectl delete -f local-dev/k8s
+	KUBECONFIG="$$(kind get kubeconfig-path --name="differ-cluster")" kubectl apply -f local-dev/k8s
