@@ -3,33 +3,37 @@ package controller
 import (
 	"github.com/fwiedmann/differ/pkg/controller/util"
 	"github.com/fwiedmann/differ/pkg/opts"
+	"github.com/fwiedmann/differ/pkg/scraper"
 	"github.com/fwiedmann/differ/pkg/scraper/appv1scraper"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 )
 
 var (
-	scrapers []scraper
+	scrapers []resourceScraper
 )
 
-type scraper interface {
-	GetWorkloadRessources(c *kubernetes.Clientset, namespace string, scrapedResources map[string]map[string]map[string]string) error
+type resourceScraper interface {
+	GetWorkloadRessources(c *kubernetes.Clientset, namespace string, scrapedResources map[string][]scraper.ScrapedResource) error
 }
 
+// Controller type struct
 type Controller struct {
 	confing *opts.ControllerConfig
 }
 
+// New initalaize the differ controller
 func New(c *opts.ControllerConfig) *Controller {
 	return &Controller{
 		confing: c,
 	}
 }
 
+// Run starts differ controller loop
 func (c *Controller) Run() error {
 	for {
 
-		scrapeResult := make(map[string]map[string]map[string]string)
+		scrapeResult := make(map[string][]scraper.ScrapedResource)
 
 		kubernetesClient, err := util.InitKubernetesClient()
 		if err != nil {
@@ -41,7 +45,7 @@ func (c *Controller) Run() error {
 				return err
 			}
 		}
-		log.Debug(scrapeResult)
+		log.Debugf("%+v", scrapeResult)
 
 		c.confing.ControllerSleep()
 	}
