@@ -1,5 +1,4 @@
 clustername = differ-cluster
-export KUBECONFIG = $$(kind get kubeconfig-path --name="differ-cluster")
 
 all: cluster_deploy
 
@@ -22,5 +21,6 @@ cluster_load_image:
 	kind load docker-image differ:dev --name $(clustername)
 
 cluster_deploy: build cluster_load_image
-	KUBECONFIG="$$(kind get kubeconfig-path --name="differ-cluster")" kubectl delete -f local-dev/k8s
-	KUBECONFIG="$$(kind get kubeconfig-path --name="differ-cluster")" kubectl apply -f local-dev/k8s
+	KUBECONFIG=$(shell kind get kubeconfig-path --name="differ-cluster")
+	kubectl delete -f local-dev/k8s
+	kubectl apply -f local-dev/k8s
