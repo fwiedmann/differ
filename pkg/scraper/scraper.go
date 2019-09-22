@@ -8,8 +8,8 @@ type ScrapedResource struct {
 	Name         string
 }
 
-// AddRessource add new resource information to store
-func AddRessource(image, apiVersion, resourceType, namespace, name string, store map[string][]ScrapedResource) {
+// AddResource add new resource information to store
+func AddResource(image, apiVersion, resourceType, namespace, name string, store map[string][]ScrapedResource) {
 	if _, found := store[image]; !found {
 		store[image] = make([]ScrapedResource, 0)
 	}

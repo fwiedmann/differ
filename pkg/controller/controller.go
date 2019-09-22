@@ -14,7 +14,7 @@ var (
 )
 
 type resourceScraper interface {
-	GetWorkloadRessources(c *kubernetes.Clientset, namespace string, scrapedResources map[string][]scraper.ScrapedResource) error
+	GetWorkloadResources(c *kubernetes.Clientset, namespace string, scrapedResources map[string][]scraper.ScrapedResource) error
 }
 
 // Controller type struct
@@ -40,8 +40,8 @@ func (c *Controller) Run() error {
 			return err
 		}
 
-		for _, scraper := range scrapers {
-			if err := scraper.GetWorkloadRessources(kubernetesClient, c.confing.Namespace, scrapeResult); err != nil {
+		for _, s := range scrapers {
+			if err := s.GetWorkloadResources(kubernetesClient, c.confing.Namespace, scrapeResult); err != nil {
 				return err
 			}
 		}
