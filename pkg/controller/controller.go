@@ -19,13 +19,13 @@ type resourceScraper interface {
 
 // Controller type struct
 type Controller struct {
-	confing *opts.ControllerConfig
+	config *opts.ControllerConfig
 }
 
-// New initalaize the differ controller
+// New initialize the differ controller
 func New(c *opts.ControllerConfig) *Controller {
 	return &Controller{
-		confing: c,
+		config: c,
 	}
 }
 
@@ -41,13 +41,13 @@ func (c *Controller) Run() error {
 		}
 
 		for _, s := range scrapers {
-			if err := s.GetWorkloadResources(kubernetesClient, c.confing.Namespace, scrapeResult); err != nil {
+			if err := s.GetWorkloadResources(kubernetesClient, c.config.Namespace, scrapeResult); err != nil {
 				return err
 			}
 		}
 		log.Debugf("%+v", scrapeResult)
 
-		c.confing.ControllerSleep()
+		c.config.ControllerSleep()
 	}
 }
 func init() {

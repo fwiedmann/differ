@@ -12,11 +12,11 @@ import (
 )
 
 const (
-	// DifferAnnotation represents the required kubrentes manifest annotation to get scraped from differ
+	// DifferAnnotation represents the required kubernetes manifest annotation to get scraped from differ
 	DifferAnnotation = "differ/active"
 )
 
-// GitRemote struct descripes remote config
+// GitRemote struct describes remote config
 type GitRemote struct {
 	Provider       string `yaml:"provider"`
 	Repositoryname string `yaml:"reponame"`
@@ -70,7 +70,7 @@ func validateConfig(c *ControllerConfig) error {
 	c.ParsedSleep = duration
 
 	if !isValid {
-		return fmt.Errorf("Configuration file \"%s\" is invalid. Please resolve errors", c.configPath)
+		return fmt.Errorf("configuration file \"%s\" is invalid. Please resolve errors", c.configPath)
 	}
 	return nil
 }
