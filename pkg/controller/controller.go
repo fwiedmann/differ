@@ -46,7 +46,11 @@ func (c *Controller) Run() error {
 			}
 		}
 		log.Debugf("%+v", scrapeResult)
-
+		imagesSortedByRegistry := make(map[string][]string)
+		for image := range scrapeResult {
+			util.AddToSortedImages(image, imagesSortedByRegistry)
+		}
+		log.Debugf("%+v", imagesSortedByRegistry)
 		c.config.ControllerSleep()
 	}
 }

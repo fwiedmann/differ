@@ -1,6 +1,6 @@
 clustername = differ-cluster
 
-all: cluster_deploy
+all: build cluster_load_image cluster_deploy logs
 
 install_kind: 
 	curl -Lo ./kind https://github.com/kubernetes-sigs/kind/releases/download/v0.5.1/kind-$$(uname)-amd64
@@ -20,7 +20,10 @@ build:
 cluster_load_image:
 	kind load docker-image differ:dev --name $(clustername)
 
-cluster_deploy: build cluster_load_image
+cluster_deploy:
 	KUBECONFIG=shell kind get kubeconfig-path --name="differ-cluster"
-	kubectl delete -f local-dev/k8s
+	kubectl delete -f local-dev/k8s; echo
 	kubectl apply -f local-dev/k8s
+
+logs:
+	stern differ
