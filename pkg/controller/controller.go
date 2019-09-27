@@ -14,7 +14,7 @@ var (
 )
 
 type resourceScraper interface {
-	GetWorkloadResources(c *kubernetes.Clientset, namespace string, scrapedResources map[string][]scraper.ScrapedResource) error
+	GetWorkloadResources(c *kubernetes.Clientset, namespace string, scrapedResources scraper.ResourceStore) error
 }
 
 // Controller type struct
@@ -32,8 +32,7 @@ func New(c *opts.ControllerConfig) *Controller {
 // Run starts differ controller loop
 func (c *Controller) Run() error {
 	for {
-
-		scrapeResult := make(map[string][]scraper.ScrapedResource)
+		scraperStore := make(scraper.ResourceStore)
 
 		kubernetesClient, err := util.InitKubernetesClient()
 		if err != nil {
@@ -41,16 +40,12 @@ func (c *Controller) Run() error {
 		}
 
 		for _, s := range scrapers {
-			if err := s.GetWorkloadResources(kubernetesClient, c.config.Namespace, scrapeResult); err != nil {
+			if err := s.GetWorkloadResources(kubernetesClient, c.config.Namespace, scraperStore); err != nil {
 				return err
 			}
 		}
-		log.Debugf("%+v", scrapeResult)
-		imagesSortedByRegistry := make(map[string][]string)
-		for image := range scrapeResult {
-			util.AddToSortedImages(image, imagesSortedByRegistry)
-		}
-		log.Debugf("%+v", imagesSortedByRegistry)
+		log.Debugf("Scraped resources:\n%+v", scraperStore)
+
 		c.config.ControllerSleep()
 	}
 }

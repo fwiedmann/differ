@@ -12,7 +12,7 @@ type Deployment struct {
 }
 
 // GetWorkloadResources scrapes all appsV1 targets
-func (d Deployment) GetWorkloadResources(c *kubernetes.Clientset, namespace string, scrapedResources map[string][]scraper.ScrapedResource) error {
+func (d Deployment) GetWorkloadResources(c *kubernetes.Clientset, namespace string, scraperStore scraper.ResourceStore) error {
 	deployments, err := c.AppsV1().Deployments(namespace).List(v1.ListOptions{})
 	if err != nil {
 		return err
@@ -21,7 +21,7 @@ func (d Deployment) GetWorkloadResources(c *kubernetes.Clientset, namespace stri
 	for _, deployment := range deployments.Items {
 		if _, ok := deployment.Annotations[opts.DifferAnnotation]; ok {
 			for _, container := range deployment.Spec.Template.Spec.Containers {
-				scraper.AddResource(container.Image, "apps/v1", "deployment", deployment.Namespace, deployment.Name, scrapedResources)
+				scraper.AddResource(container.Image, "apps/v1", "deployment", deployment.Namespace, deployment.Name, scraperStore)
 			}
 		}
 	}

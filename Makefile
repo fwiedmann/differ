@@ -21,7 +21,6 @@ cluster_load_image:
 	kind load docker-image differ:dev --name $(clustername)
 
 cluster_deploy:
-	KUBECONFIG=shell kind get kubeconfig-path --name="differ-cluster"
 	kubectl delete -f local-dev/k8s; echo
 	kubectl apply -f local-dev/k8s
 
