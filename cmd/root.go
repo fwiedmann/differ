@@ -27,6 +27,8 @@ package cmd
 import (
 	"github.com/fwiedmann/differ/pkg/controller"
 	"github.com/fwiedmann/differ/pkg/opts"
+	"github.com/fwiedmann/differ/pkg/scraper"
+	"github.com/fwiedmann/differ/pkg/scraper/appv1scraper"
 	"github.com/spf13/cobra"
 )
 
@@ -42,12 +44,18 @@ var rootCmd = cobra.Command{
 
 		c := controller.New(o)
 
-		if err = c.Run(); err != nil {
+		resourceStore := make(scraper.ResourceStore)
+
+		if err = c.Run(scrapers, resourceStore); err != nil {
 			return err
 		}
 		return nil
 	},
 }
+
+var (
+	scrapers []controller.ResourceScraper
+)
 
 var configFile string
 var logLevel string
@@ -55,6 +63,7 @@ var logLevel string
 func init() {
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "./config.yaml", "Path to differ config file")
 	rootCmd.PersistentFlags().StringVar(&logLevel, "loglevel", "info", "Set loglevel. Default is info")
+	scrapers = append(scrapers, appv1scraper.Deployment{})
 }
 
 // Execute executes the rootCmd

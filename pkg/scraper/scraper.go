@@ -24,7 +24,9 @@
 
 package scraper
 
-import "strings"
+import (
+	"strings"
+)
 
 type (
 	// ResourceStore stores all scraped images with ResourceMetaInfo in the way of:
@@ -41,7 +43,7 @@ type (
 )
 
 // AddResource add new resource information to store
-func AddResource(scrapedImage, apiVersion, resourceType, namespace, name string, store ResourceStore) {
+func (store ResourceStore) AddResource(scrapedImage, apiVersion, resourceType, namespace, name string) {
 	registry, image := getResourceStoreKeys(scrapedImage)
 
 	if _, found := store[registry]; !found {
@@ -57,6 +59,13 @@ func AddResource(scrapedImage, apiVersion, resourceType, namespace, name string,
 		Namespace:    namespace,
 		Name:         name,
 	})
+}
+
+// Wipe deletes all entrys in store
+func (store ResourceStore) Wipe() {
+	for key := range store {
+		delete(store, key)
+	}
 }
 
 // getResourceStoreKeys extract registryURL and image name from scraped image
