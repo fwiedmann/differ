@@ -42,6 +42,8 @@ type (
 	}
 )
 
+const dockerHubURL string = "https://index.docker.io"
+
 // AddResource add new resource information to store
 func (store ResourceStore) AddResource(scrapedImage, apiVersion, resourceType, namespace, name string) {
 	registry, image := getResourceStoreKeys(scrapedImage)
@@ -69,11 +71,11 @@ func (store ResourceStore) Wipe() {
 }
 
 // getResourceStoreKeys extract registryURL and image name from scraped image
-// If image belongs to hub.docker.io the url is set to empty string
+// If image belongs to docker hub URL will be set to dockerHubURL const
 func getResourceStoreKeys(scrapedImage string) (registryURL, image string) {
 	split := strings.Split(scrapedImage, "/")
 	if !strings.Contains(split[0], ".") {
-		return "", scrapedImage
+		return dockerHubURL, scrapedImage
 	}
 
 	registryURL = split[0]
