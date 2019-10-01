@@ -29,7 +29,6 @@ import (
 	"io/ioutil"
 	"time"
 
-	nested "github.com/antonfisher/nested-logrus-formatter"
 	log "github.com/sirupsen/logrus"
 
 	"gopkg.in/yaml.v2"
@@ -58,11 +57,8 @@ type ControllerConfig struct {
 }
 
 // Init initialize controller configuration
-func Init(configPath, logLevel string) (*ControllerConfig, error) {
+func Init(configPath string) (*ControllerConfig, error) {
 
-	if err := setLoglevel(logLevel); err != nil {
-		return &ControllerConfig{}, err
-	}
 	config := &ControllerConfig{configPath: configPath}
 
 	configFile, err := ioutil.ReadFile(configPath)
@@ -96,20 +92,6 @@ func validateConfig(c *ControllerConfig) error {
 	if !isValid {
 		return fmt.Errorf("configuration file \"%s\" is invalid. Please resolve errors", c.configPath)
 	}
-	return nil
-}
-
-func setLoglevel(level string) error {
-	parsedLevel, err := log.ParseLevel(level)
-	if err != nil {
-		return err
-	}
-
-	log.SetLevel(parsedLevel)
-	log.SetFormatter(&log.TextFormatter{ForceColors: true})
-	log.SetFormatter(&nested.Formatter{
-		HideKeys: true,
-	})
 	return nil
 }
 

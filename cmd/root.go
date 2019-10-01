@@ -25,10 +25,12 @@
 package cmd
 
 import (
+	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/fwiedmann/differ/pkg/controller"
 	"github.com/fwiedmann/differ/pkg/opts"
 	"github.com/fwiedmann/differ/pkg/scraper"
 	"github.com/fwiedmann/differ/pkg/scraper/appv1scraper"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -36,8 +38,15 @@ var rootCmd = cobra.Command{
 	Use:          "differ",
 	Short:        "",
 	SilenceUsage: true,
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		lvl, err := cmd.Flags().GetString("loglevel")
+		if err != nil {
+			return err
+		}
+		return setLoglevel(lvl)
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		o, err := opts.Init(configFile, logLevel)
+		o, err := opts.Init(configFile)
 		if err != nil {
 			return err
 		}
@@ -58,11 +67,10 @@ var (
 )
 
 var configFile string
-var logLevel string
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "./config.yaml", "Path to differ config file")
-	rootCmd.PersistentFlags().StringVar(&logLevel, "loglevel", "info", "Set loglevel. Default is info")
+	rootCmd.Flags().String("loglevel", "info", "Set loglevel. Default is info")
 	scrapers = append(scrapers, appv1scraper.Deployment{})
 }
 
@@ -72,5 +80,19 @@ func Execute() error {
 	if err := rootCmd.Execute(); err != nil {
 		return err
 	}
+	return nil
+}
+
+func setLoglevel(level string) error {
+	parsedLevel, err := log.ParseLevel(level)
+	if err != nil {
+		return err
+	}
+
+	log.SetLevel(parsedLevel)
+	log.SetFormatter(&log.TextFormatter{ForceColors: true})
+	log.SetFormatter(&nested.Formatter{
+		HideKeys: true,
+	})
 	return nil
 }
