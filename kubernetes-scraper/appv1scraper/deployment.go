@@ -25,8 +25,8 @@
 package appv1scraper
 
 import (
-	"github.com/fwiedmann/differ/pkg/controller"
 	"github.com/fwiedmann/differ/pkg/opts"
+	"github.com/fwiedmann/differ/pkg/store"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -35,8 +35,8 @@ import (
 type Deployment struct {
 }
 
-// GetWorkloadResources scrapes all appsV1 targets
-func (d Deployment) GetWorkloadResources(c *kubernetes.Clientset, namespace string, resourceStore controller.Store) error {
+// GetWorkloadResources scrapes all appsV1 deployments
+func (d Deployment) GetWorkloadResources(c *kubernetes.Clientset, namespace string, resourceStore store.Cache) error {
 	deployments, err := c.AppsV1().Deployments(namespace).List(v1.ListOptions{})
 	if err != nil {
 		return err

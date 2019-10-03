@@ -26,10 +26,9 @@ package cmd
 
 import (
 	nested "github.com/antonfisher/nested-logrus-formatter"
+	"github.com/fwiedmann/differ/kubernetes-scraper/appv1scraper"
 	"github.com/fwiedmann/differ/pkg/controller"
 	"github.com/fwiedmann/differ/pkg/opts"
-	"github.com/fwiedmann/differ/pkg/scraper"
-	"github.com/fwiedmann/differ/pkg/scraper/appv1scraper"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -52,13 +51,7 @@ var rootCmd = cobra.Command{
 		}
 
 		c := controller.New(o)
-
-		resourceStore := make(scraper.ResourceStore)
-
-		if err = c.Run(scrapers, resourceStore); err != nil {
-			return err
-		}
-		return nil
+		return c.Run(scrapers)
 	},
 }
 
@@ -76,11 +69,7 @@ func init() {
 
 // Execute executes the rootCmd
 func Execute() error {
-
-	if err := rootCmd.Execute(); err != nil {
-		return err
-	}
-	return nil
+	return rootCmd.Execute()
 }
 
 func setLoglevel(level string) error {

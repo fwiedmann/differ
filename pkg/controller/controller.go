@@ -27,19 +27,14 @@ package controller
 import (
 	"github.com/fwiedmann/differ/pkg/controller/util"
 	"github.com/fwiedmann/differ/pkg/opts"
+	"github.com/fwiedmann/differ/pkg/store"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 )
 
 //ResourceScraper save scraped data in store
 type ResourceScraper interface {
-	GetWorkloadResources(c *kubernetes.Clientset, namespace string, scrapedResources Store) error
-}
-
-// Store stores all scraped information
-type Store interface {
-	AddResource(scrapedImage, apiVersion, resourceType, namespace, name string)
-	Wipe()
+	GetWorkloadResources(c *kubernetes.Clientset, namespace string, scrapedResources store.Cache) error
 }
 
 // Controller type struct
@@ -55,8 +50,9 @@ func New(c *opts.ControllerConfig) *Controller {
 }
 
 // Run starts differ controller loop
-func (c *Controller) Run(resourceScrapers []ResourceScraper, store Store) error {
+func (c *Controller) Run(resourceScrapers []ResourceScraper) error {
 	for {
+		cache := make(store.Cache)
 
 		kubernetesClient, err := util.InitKubernetesClient()
 		if err != nil {
@@ -64,13 +60,12 @@ func (c *Controller) Run(resourceScrapers []ResourceScraper, store Store) error 
 		}
 
 		for _, s := range resourceScrapers {
-			if err := s.GetWorkloadResources(kubernetesClient, c.config.Namespace, store); err != nil {
+			if err := s.GetWorkloadResources(kubernetesClient, c.config.Namespace, cache); err != nil {
 				return err
 			}
 		}
-		log.Debugf("Scraped resources:\n%+v", store)
+		log.Debugf("Scraped resources:\n%+v", cache)
 
-		store.Wipe()
 		c.config.ControllerSleep()
 	}
 }
