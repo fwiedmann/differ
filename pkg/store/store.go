@@ -15,12 +15,13 @@ type (
 		ResourceType string
 		Namespace    string
 		Name         string
+		ImageTag     string
 	}
 )
 
 // AddResource add new resource information to store
 func (store Cache) AddResource(scrapedImage, apiVersion, resourceType, namespace, name string) {
-	registry, image := getResourceStoreKeys(scrapedImage)
+	registry, image, tag := getResourceStoreKeys(scrapedImage)
 
 	if _, found := store[registry]; !found {
 		store[registry] = make(map[string][]ResourceMetaInfo)
@@ -34,18 +35,30 @@ func (store Cache) AddResource(scrapedImage, apiVersion, resourceType, namespace
 		ResourceType: resourceType,
 		Namespace:    namespace,
 		Name:         name,
+		ImageTag:     tag,
 	})
 }
 
 // getResourceStoreKeys extract registryURL and image name from scraped image
 // If image belongs to docker hub URL will be set to dockerHubURL const
-func getResourceStoreKeys(scrapedImage string) (registryURL, image string) {
+func getResourceStoreKeys(scrapedImage string) (registryURL, image, tag string) {
 	split := strings.Split(scrapedImage, "/")
 	if !strings.Contains(split[0], ".") {
-		return dockerHubURL, scrapedImage
+		image, tag := splitImage(scrapedImage)
+		return dockerHubURL, image, tag
 	}
 
 	registryURL = split[0]
+	trimedImage := strings.TrimPrefix(scrapedImage, registryURL+"/")
+	image, tag = splitImage(trimedImage)
 
-	return registryURL, strings.TrimPrefix(scrapedImage, registryURL+"/")
+	return registryURL, image, tag
+}
+
+func splitImage(fullImage string) (image, tag string) {
+	split := strings.Split(fullImage, ":")
+	if len(split) == 2 {
+		return split[0], split[1]
+	}
+	return fullImage, "latest"
 }
