@@ -64,7 +64,7 @@ func (c *Controller) Run(resourceScrapers []ResourceScraper) error {
 				return err
 			}
 		}
-		log.Debugf("Scraped resources:\n%+v", cache)
+		log.Debugf("Scraped resources:\n%v", cache)
 
 		c.config.ControllerSleep()
 	}

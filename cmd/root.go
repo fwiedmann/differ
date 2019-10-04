@@ -26,8 +26,8 @@ package cmd
 
 import (
 	nested "github.com/antonfisher/nested-logrus-formatter"
-	"github.com/fwiedmann/differ/kubernetes-scraper/appv1scraper"
 	"github.com/fwiedmann/differ/pkg/controller"
+	"github.com/fwiedmann/differ/pkg/kubernetes-scraper/appv1scraper"
 	"github.com/fwiedmann/differ/pkg/opts"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"

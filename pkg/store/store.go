@@ -2,12 +2,12 @@ package store
 
 import "strings"
 
-const dockerHubURL string = "https://index.docker.io"
+const dockerHubURL string = "https://index.docker.io/"
 
 type (
 	// Cache stores all scraped images with ResourceMetaInfo in the way of:
-	// ["registry"]["image"][]ResourceMetaInfo{}
-	Cache map[string]map[string][]ResourceMetaInfo
+	// ["image"][]ResourceMetaInfo{}
+	Cache map[string][]ResourceMetaInfo
 
 	// ResourceMetaInfo contains unique meta information from scraped resource types
 	ResourceMetaInfo struct {
@@ -21,16 +21,13 @@ type (
 
 // AddResource add new resource information to store
 func (store Cache) AddResource(scrapedImage, apiVersion, resourceType, namespace, name string) {
-	registry, image, tag := getResourceStoreKeys(scrapedImage)
+	image, tag := getResourceStoreKeys(scrapedImage)
 
-	if _, found := store[registry]; !found {
-		store[registry] = make(map[string][]ResourceMetaInfo)
+	if _, found := store[image]; !found {
+		store[image] = make([]ResourceMetaInfo, 0)
 	}
 
-	if _, found := store[registry][image]; !found {
-		store[registry][image] = make([]ResourceMetaInfo, 0)
-	}
-	store[registry][image] = append(store[registry][image], ResourceMetaInfo{
+	store[image] = append(store[image], ResourceMetaInfo{
 		APIVersion:   apiVersion,
 		ResourceType: resourceType,
 		Namespace:    namespace,
@@ -39,20 +36,18 @@ func (store Cache) AddResource(scrapedImage, apiVersion, resourceType, namespace
 	})
 }
 
-// getResourceStoreKeys extract registryURL and image name from scraped image
+// getResourceStoreKeys extract image and tag from scraped image
 // If image belongs to docker hub URL will be set to dockerHubURL const
-func getResourceStoreKeys(scrapedImage string) (registryURL, image, tag string) {
+func getResourceStoreKeys(scrapedImage string) (image, tag string) {
 	split := strings.Split(scrapedImage, "/")
 	if !strings.Contains(split[0], ".") {
 		image, tag := splitImage(scrapedImage)
-		return dockerHubURL, image, tag
+		return dockerHubURL + image, tag
 	}
 
-	registryURL = split[0]
-	trimedImage := strings.TrimPrefix(scrapedImage, registryURL+"/")
-	image, tag = splitImage(trimedImage)
+	image, tag = splitImage(scrapedImage)
 
-	return registryURL, image, tag
+	return image, tag
 }
 
 func splitImage(fullImage string) (image, tag string) {
