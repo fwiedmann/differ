@@ -23,6 +23,7 @@ cluster_load_image:
 cluster_deploy:
 	kubectl delete -f local-dev/k8s; echo
 	kubectl apply -f local-dev/k8s
+	kubectl apply -f local-dev/k8s/test-workload
 
 logs:
 	stern differ
