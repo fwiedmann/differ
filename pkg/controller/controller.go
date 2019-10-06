@@ -27,6 +27,7 @@ package controller
 import (
 	"github.com/fwiedmann/differ/pkg/controller/util"
 	"github.com/fwiedmann/differ/pkg/opts"
+	"github.com/fwiedmann/differ/pkg/registry"
 	"github.com/fwiedmann/differ/pkg/store"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
@@ -64,8 +65,22 @@ func (c *Controller) Run(resourceScrapers []ResourceScraper) error {
 				return err
 			}
 		}
-		log.Debugf("Scraped resources:\n%v", cache)
+		log.Debugf("Scraped resources: %v", cache)
 
+		// ToDo: use threads with channels for scraping the remotes
+		for key, _ := range cache {
+			r, err := registry.NewRemote(key)
+			if err != nil {
+				if val, ok := err.(registry.Error); ok {
+					log.Error(val)
+					continue
+				} else {
+					return err
+				}
+			}
+			log.Debugf("Created Remotes: %s", r.URL)
+			r.GetTags()
+		}
 		c.config.ControllerSleep()
 	}
 }
