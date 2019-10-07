@@ -78,8 +78,15 @@ func (c *Controller) Run(resourceScrapers []ResourceScraper) error {
 					return err
 				}
 			}
-			log.Debugf("Created Remotes: %s", r.URL)
-			r.GetTags()
+			_, err = r.GetTags()
+			if err != nil {
+				if val, ok := err.(registry.Error); ok {
+					log.Error(val)
+					continue
+				} else {
+					return err
+				}
+			}
 		}
 		c.config.ControllerSleep()
 	}

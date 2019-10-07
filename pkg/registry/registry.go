@@ -54,7 +54,7 @@ type BearerToken struct {
 	IssuedAt    time.Time `json:"issued_at"`
 }
 
-type Tags struct {
+type ListTagsResponse struct {
 	Tags []string `json:"tags"`
 }
 
@@ -117,20 +117,19 @@ func parseImageToURL(image string) (*url.URL, error) {
 	return parsedURL, nil
 }
 
-// ToDo: use makeRequest() func
 func getAuthRealmURL(remoteURL *url.URL) (string, error) {
 	basicRemoteURL := fmt.Sprintf("%s://%s/%s", remoteURL.Scheme, remoteURL.Hostname(), apiVersion)
-	resp, err := http.Get(basicRemoteURL)
-	defer resp.Body.Close()
+
+	_, statusCode, header, err := makeRequest(http.MethodGet, basicRemoteURL)
 
 	if err != nil {
 		return "", err
 	}
-	if resp.StatusCode == http.StatusNotFound {
+	if statusCode == http.StatusNotFound {
 		return "", NewError(remoteURL.String(), "Could not resolve remote auth endpoint, will skip")
 	}
 
-	authHeaderValues := strings.Split(resp.Header[authHeaderKey][0], " ")
+	authHeaderValues := strings.Split(header[authHeaderKey][0], " ")
 	if authHeaderValues[0] != "Bearer" {
 		return "", NewError(remoteURL.String(), "Remotes auth does not support bearer auth, will skip.")
 	}
@@ -153,21 +152,23 @@ func getAuthRealmURL(remoteURL *url.URL) (string, error) {
 }
 
 func getBearerToken(authRealmURL string) (BearerToken, error) {
-	body, _, err := makeRequest(http.MethodGet, authRealmURL, nil)
+	body, _, _, err := makeRequest(http.MethodGet, authRealmURL)
 	if err != nil {
 		return BearerToken{}, err
 	}
 	var token BearerToken
-	err = json.Unmarshal(body, &token)
-	if err != nil {
+	if err := json.Unmarshal(body, &token); err != nil {
 		return BearerToken{}, err
 	}
 	return token, nil
 }
 
-// ToDo: return headers
 // makeRequest helper method for http requests
-func makeRequest(method, url string, headers map[string]string) (body []byte, responseCode int, err error) {
+func makeRequest(method, url string) (body []byte, responseCode int, header http.Header, err error) {
+	return makeRequestWithHeader(method, url, nil)
+}
+
+func makeRequestWithHeader(method, url string, headers map[string]string) (body []byte, responseCode int, header http.Header, err error) {
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		return
@@ -177,11 +178,13 @@ func makeRequest(method, url string, headers map[string]string) (body []byte, re
 	}
 	client := http.Client{}
 	resp, err := client.Do(req)
+	defer resp.Body.Close()
 	if err != nil {
 		return
 	}
 
 	responseCode = resp.StatusCode
+	header = resp.Header
 	body, err = ioutil.ReadAll(resp.Body)
 
 	return
@@ -190,12 +193,19 @@ func makeRequest(method, url string, headers map[string]string) (body []byte, re
 // GetTags get all available tags from remote
 func (r *Remote) GetTags() ([]string, error) {
 	// ToDo: check resp code, parse body, if bearer token is expired retry to get an new
-	body, _, err := makeRequest(http.MethodGet, r.URL.String()+"/tags/list", map[string]string{
+	body, _, _, err := makeRequestWithHeader(http.MethodGet, r.URL.String()+"/tags/list", map[string]string{
 		"Authorization": "Bearer " + r.bearerToken.Token,
 	})
 	if err != nil {
-		return []string{}, err
+		return []string{}, NewError(r.URL.String(), err.Error())
 	}
-	log.Debugf("%s Tags: %s", r.URL, body)
-	return []string{}, nil
+
+	var list ListTagsResponse
+
+	if err := json.Unmarshal(body, &list); err != nil {
+		return []string{}, NewError(r.URL.String(), err.Error())
+	}
+
+	log.Debugf("%s Tags: %+v", r.URL, list)
+	return list.Tags, nil
 }
