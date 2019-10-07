@@ -27,8 +27,8 @@ package registry
 import (
 	"encoding/json"
 	"fmt"
+	httpClient "github.com/fwiedmann/differ/pkg/http"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -43,7 +43,6 @@ const (
 type Remote struct {
 	URL          *url.URL
 	authRealmURL string
-	client       http.Client
 	bearerToken  BearerToken
 }
 
@@ -120,7 +119,7 @@ func parseImageToURL(image string) (*url.URL, error) {
 func getAuthRealmURL(remoteURL *url.URL) (string, error) {
 	basicRemoteURL := fmt.Sprintf("%s://%s/%s", remoteURL.Scheme, remoteURL.Hostname(), apiVersion)
 
-	_, statusCode, header, err := makeRequest(http.MethodGet, basicRemoteURL)
+	_, statusCode, header, err := httpClient.MakeRequest(http.MethodGet, basicRemoteURL)
 
 	if err != nil {
 		return "", err
@@ -152,7 +151,7 @@ func getAuthRealmURL(remoteURL *url.URL) (string, error) {
 }
 
 func getBearerToken(authRealmURL string) (BearerToken, error) {
-	body, _, _, err := makeRequest(http.MethodGet, authRealmURL)
+	body, _, _, err := httpClient.MakeRequest(http.MethodGet, authRealmURL)
 	if err != nil {
 		return BearerToken{}, err
 	}
@@ -163,37 +162,10 @@ func getBearerToken(authRealmURL string) (BearerToken, error) {
 	return token, nil
 }
 
-// makeRequest helper method for http requests
-func makeRequest(method, url string) (body []byte, responseCode int, header http.Header, err error) {
-	return makeRequestWithHeader(method, url, nil)
-}
-
-func makeRequestWithHeader(method, url string, headers map[string]string) (body []byte, responseCode int, header http.Header, err error) {
-	req, err := http.NewRequest(method, url, nil)
-	if err != nil {
-		return
-	}
-	for headerKey, headerValue := range headers {
-		req.Header.Set(headerKey, headerValue)
-	}
-	client := http.Client{}
-	resp, err := client.Do(req)
-	defer resp.Body.Close()
-	if err != nil {
-		return
-	}
-
-	responseCode = resp.StatusCode
-	header = resp.Header
-	body, err = ioutil.ReadAll(resp.Body)
-
-	return
-}
-
 // GetTags get all available tags from remote
 func (r *Remote) GetTags() ([]string, error) {
 	// ToDo: check resp code, parse body, if bearer token is expired retry to get an new
-	body, _, _, err := makeRequestWithHeader(http.MethodGet, r.URL.String()+"/tags/list", map[string]string{
+	body, _, _, err := httpClient.MakeRequestWithHeader(http.MethodGet, r.URL.String()+"/tags/list", map[string]string{
 		"Authorization": "Bearer " + r.bearerToken.Token,
 	})
 	if err != nil {
