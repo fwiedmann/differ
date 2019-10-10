@@ -8,10 +8,6 @@ import (
 type Client struct {
 }
 
-func NewClient() *Client {
-	return &Client{}
-}
-
 // MakeRequest http request which returns the body
 func MakeRequest(method, url string) (body []byte, responseCode int, header http.Header, err error) {
 	return MakeRequestWithHeader(method, url, nil)
