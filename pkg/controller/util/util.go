@@ -25,6 +25,7 @@
 package util
 
 import (
+	"github.com/fwiedmann/differ/pkg/registry"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -40,4 +41,24 @@ func InitKubernetesClient() (*kubernetes.Clientset, error) {
 	} else {
 		return clientset, nil
 	}
+}
+
+func RemotesListTags(remotes map[string]*registry.Remote) error {
+	remoteError := make(chan error, len(remotes))
+
+	for _, remote := range remotes {
+		go remote.GetTags(remoteError)
+	}
+
+	for _, remote := range remotes {
+		err := <-remoteError
+		if err != nil {
+			if val, ok := err.(registry.Error); ok {
+				remote.RemoteLogger.Errorf(val.Error())
+			} else {
+				return err
+			}
+		}
+	}
+	return nil
 }

@@ -1,6 +1,7 @@
 package http
 
 import (
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 )
@@ -28,6 +29,7 @@ func MakeRequestWithHeader(method, url string, headers map[string]string) (body 
 	if err != nil {
 		return
 	}
+	log.Debugf("Status code  %d for url: %s", resp.StatusCode, url)
 
 	responseCode = resp.StatusCode
 	header = resp.Header

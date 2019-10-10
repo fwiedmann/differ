@@ -52,6 +52,7 @@ func New(c *opts.ControllerConfig) *Controller {
 
 // Run starts differ controller loop
 func (c *Controller) Run(resourceScrapers []ResourceScraper) error {
+	remotes := make(map[string]*registry.Remote, 0)
 	for {
 		cache := make(store.Cache)
 
@@ -67,9 +68,8 @@ func (c *Controller) Run(resourceScrapers []ResourceScraper) error {
 		}
 		log.Debugf("Scraped resources: %v", cache)
 
-		// ToDo: use threads with channels for scraping the remotes
-		for key, _ := range cache {
-			r, err := registry.NewRemote(key)
+		for image := range cache {
+			remoteImage, err := registry.NewRemote(image)
 			if err != nil {
 				if val, ok := err.(registry.Error); ok {
 					log.Error(val)
@@ -78,16 +78,12 @@ func (c *Controller) Run(resourceScrapers []ResourceScraper) error {
 					return err
 				}
 			}
-			_, err = r.GetTags()
-			if err != nil {
-				if val, ok := err.(registry.Error); ok {
-					log.Error(val)
-					continue
-				} else {
-					return err
-				}
-			}
+			remotes[remoteImage.URL.String()] = remoteImage
 		}
+		if err := util.RemotesListTags(remotes); err != nil {
+			return err
+		}
+
 		c.config.ControllerSleep()
 	}
 }

@@ -97,5 +97,6 @@ func validateConfig(c *ControllerConfig) error {
 
 // ControllerSleep sleep for configured duration
 func (c *ControllerConfig) ControllerSleep() {
+	log.Infof("Done, start sleeping for %s", c.Sleep)
 	time.Sleep(c.ParsedSleep)
 }

@@ -41,3 +41,24 @@ spec:
       containers:
         - name: test2
           image: wiedmannfelix/heartbeat
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  annotations:
+    differ/active: "true"
+spec:
+  selector:
+    matchLabels:
+      app: grafana
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: dummy
+          image: library/tomcat
