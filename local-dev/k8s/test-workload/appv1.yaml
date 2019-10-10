@@ -1,0 +1,64 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test1
+  annotations:
+    differ/active: "true"
+spec:
+  selector:
+    matchLabels:
+      app: test1
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: test1
+      annotations:
+        differ/active: "true"
+    spec:
+      containers:
+        - name: test1
+          image: wiedmannfelix/heartbeat
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test2
+  annotations:
+    differ/active: "true"
+spec:
+  selector:
+    matchLabels:
+      app: test2
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: test2
+    spec:
+      containers:
+        - name: test2
+          image: wiedmannfelix/heartbeat
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  annotations:
+    differ/active: "true"
+spec:
+  selector:
+    matchLabels:
+      app: grafana
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: dummy
+          image: library/tomcat

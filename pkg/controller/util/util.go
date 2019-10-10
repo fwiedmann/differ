@@ -1,0 +1,64 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2019 Felix Wiedmann
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+package util
+
+import (
+	"github.com/fwiedmann/differ/pkg/registry"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+)
+
+func InitKubernetesClient() (*kubernetes.Clientset, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return &kubernetes.Clientset{}, err
+	}
+
+	if clientset, err := kubernetes.NewForConfig(config); err != nil {
+		return &kubernetes.Clientset{}, err
+	} else {
+		return clientset, nil
+	}
+}
+
+func RemotesListTags(remotes map[string]*registry.Remote) error {
+	remoteError := make(chan error, len(remotes))
+
+	for _, remote := range remotes {
+		go remote.GetTags(remoteError)
+	}
+
+	for _, remote := range remotes {
+		err := <-remoteError
+		if err != nil {
+			if val, ok := err.(registry.Error); ok {
+				remote.RemoteLogger.Errorf(val.Error())
+			} else {
+				return err
+			}
+		}
+	}
+	return nil
+}

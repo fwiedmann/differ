@@ -1,0 +1,6 @@
+namespace: "default"
+controllerSleep: "10s"
+remotes:
+  - provider: github
+    reponame: foo
+    username: bar
