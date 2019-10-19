@@ -26,9 +26,40 @@ package util
 
 import (
 	"github.com/fwiedmann/differ/pkg/registry"
+	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"regexp"
+	"sort"
 )
+
+var imageTagPatterns = []string{
+	"^[0-9].[0-9].[0-9]$",
+}
+
+func IsValidTag(tag string) (bool, string) {
+	for _, pattern := range imageTagPatterns {
+		valid, err := regexp.Match(pattern, []byte(tag))
+		if err != nil {
+			log.Error(err)
+		}
+		if valid {
+			return valid, pattern
+		}
+	}
+	return false, ""
+}
+
+func SortTagsByPattern(tags []string, pattern string) []string {
+	var validTags []string
+	for _, tag := range tags {
+		if valid, _ := regexp.Match(pattern, []byte(tag)); valid {
+			validTags = append(validTags, tag)
+		}
+	}
+	sort.Strings(validTags)
+	return validTags
+}
 
 func InitKubernetesClient() (*kubernetes.Clientset, error) {
 	config, err := rest.InClusterConfig()
@@ -43,22 +74,10 @@ func InitKubernetesClient() (*kubernetes.Clientset, error) {
 	}
 }
 
-func RemotesListTags(remotes map[string]*registry.Remote) error {
-	remoteError := make(chan error, len(remotes))
-
-	for _, remote := range remotes {
-		go remote.GetTags(remoteError)
+func IsRegistryError(err error) error {
+	if err, ok := err.(registry.Error); ok {
+		log.Error(err)
+		return nil
 	}
-
-	for _, remote := range remotes {
-		err := <-remoteError
-		if err != nil {
-			if val, ok := err.(registry.Error); ok {
-				remote.RemoteLogger.Errorf(val.Error())
-			} else {
-				return err
-			}
-		}
-	}
-	return nil
+	return err
 }

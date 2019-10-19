@@ -44,7 +44,6 @@ type Remote struct {
 	URL          *url.URL
 	authRealmURL string
 	bearerToken  BearerToken
-	LatestTags   []string
 	RemoteLogger *log.Entry
 }
 
@@ -57,6 +56,21 @@ type BearerToken struct {
 
 type ListTagsResponse struct {
 	Tags []string `json:"tags"`
+}
+
+type Remotes map[string]*Remote
+
+func (r Remotes) CreateRemoteIfNotExists(image string) error {
+	if _, found := r[image]; found {
+		log.Debugf("Remote for image %s already exists", image)
+	}
+	remote, err := newRemote(image)
+	if err != nil {
+		return err
+	}
+
+	r[image] = remote
+	return nil
 }
 
 // Error type for registry package
@@ -79,7 +93,7 @@ func NewError(remoteURL, errorMessage string) Error {
 }
 
 // NewRemote inits a new remote
-func NewRemote(image string) (*Remote, error) {
+func newRemote(image string) (*Remote, error) {
 	parsedURL, err := parseImageToURL(image)
 	if err != nil {
 		return nil, NewError(image, fmt.Sprintf("Could no parse image to remote URL: %s", err.Error()))
@@ -166,22 +180,19 @@ func getBearerToken(authRealmURL string) (BearerToken, error) {
 }
 
 // GetTags get all available tags from remote
-func (r *Remote) GetTags(e chan<- error) {
+func (r *Remote) GetTags() ([]string, error) {
 	// ToDo: check resp code, parse body, if bearer token is expired retry to get an new
 	body, _, _, err := httpClient.MakeRequestWithHeader(http.MethodGet, r.URL.String()+"/tags/list", map[string]string{
 		"Authorization": "Bearer " + r.bearerToken.Token,
 	})
 	if err != nil {
-		e <- NewError(r.URL.String(), err.Error())
+		return []string{}, err
 	}
-
 	var list ListTagsResponse
 
 	if err := json.Unmarshal(body, &list); err != nil {
-		e <- NewError(r.URL.String(), err.Error())
+		return []string{}, NewError(r.URL.String(), err.Error())
 	}
-
-	r.LatestTags = list.Tags
-	r.RemoteLogger.Debugf("Latest tags %v", list.Tags)
-	e <- nil
+	r.RemoteLogger.Tracef("Latest tags %v", list.Tags)
+	return list.Tags, nil
 }

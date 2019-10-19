@@ -14,7 +14,8 @@ type (
 		APIVersion   string
 		ResourceType string
 		Namespace    string
-		Name         string
+		WorkloadName string
+		ImageName    string
 		ImageTag     string
 	}
 )
@@ -31,7 +32,8 @@ func (store Cache) AddResource(scrapedImage, apiVersion, resourceType, namespace
 		APIVersion:   apiVersion,
 		ResourceType: resourceType,
 		Namespace:    namespace,
-		Name:         name,
+		WorkloadName: name,
+		ImageName:    image,
 		ImageTag:     tag,
 	})
 }

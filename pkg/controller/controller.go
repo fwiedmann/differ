@@ -51,8 +51,8 @@ func New(c *opts.ControllerConfig) *Controller {
 }
 
 // Run starts differ controller loop
-func (c *Controller) Run(resourceScrapers []ResourceScraper) error {
-	remotes := make(map[string]*registry.Remote, 0)
+func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
+	remotes := make(registry.Remotes)
 	for {
 		cache := make(store.Cache)
 
@@ -62,28 +62,46 @@ func (c *Controller) Run(resourceScrapers []ResourceScraper) error {
 		}
 
 		for _, s := range resourceScrapers {
-			if err := s.GetWorkloadResources(kubernetesClient, c.config.Namespace, cache); err != nil {
+			if err := s.GetWorkloadResources(kubernetesClient, controller.config.Namespace, cache); err != nil {
 				return err
 			}
 		}
-		log.Debugf("Scraped resources: %v", cache)
+		log.Tracef("Scraped resources: %v", cache)
 
-		for image := range cache {
-			remoteImage, err := registry.NewRemote(image)
-			if err != nil {
-				if val, ok := err.(registry.Error); ok {
-					log.Error(val)
-					continue
+		c := make(chan error, len(cache))
+
+		for image, imageInfos := range cache {
+			go func(imageName string, resourceMetaInfos []store.ResourceMetaInfo, errChan chan<- error) {
+				if err := remotes.CreateRemoteIfNotExists(imageName); err != nil {
+					errChan <- err
 				} else {
-					return err
+					remote := remotes[imageName]
+					remoteTags, err := remote.GetTags()
+					if err := util.IsRegistryError(err); err != nil {
+						errChan <- err
+					} else {
+						for _, info := range resourceMetaInfos {
+							valid, pattern := util.IsValidTag(info.ImageTag)
+							if !valid {
+								continue
+							}
+							sortedTags := util.SortTagsByPattern(remoteTags, pattern)
+							log.Infof("Sorted ImageTags: %v", sortedTags)
+						}
+						errChan <- nil
+					}
 				}
-			}
-			remotes[remoteImage.URL.String()] = remoteImage
-		}
-		if err := util.RemotesListTags(remotes); err != nil {
-			return err
+
+			}(image, imageInfos, c)
 		}
 
-		c.config.ControllerSleep()
+		for range cache {
+			if err := <-c; err != nil {
+				log.Error(err)
+			}
+		}
+
+		log.Debugf("All remotes: %+v", remotes)
+		controller.config.ControllerSleep()
 	}
 }
