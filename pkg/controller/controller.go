@@ -68,8 +68,9 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 		}
 		log.Tracef("Scraped resources: %v", cache)
 
-		c := make(chan error, len(cache))
+		syncErr := make(chan error, len(cache))
 
+		// start go routine to analyze each scraped image
 		for image, imageInfos := range cache {
 			go func(imageName string, resourceMetaInfos []store.ResourceMetaInfo, errChan chan<- error) {
 				if err := remotes.CreateRemoteIfNotExists(imageName); err != nil {
@@ -77,7 +78,7 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 				} else {
 					remote := remotes[imageName]
 					remoteTags, err := remote.GetTags()
-					if err := util.IsRegistryError(err); err != nil {
+					if err != nil {
 						errChan <- err
 					} else {
 						for _, info := range resourceMetaInfos {
@@ -92,14 +93,17 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 					}
 				}
 
-			}(image, imageInfos, c)
+			}(image, imageInfos, syncErr)
 		}
 
+		// synchronize with all started go routines for each scraped image
 		for range cache {
-			if err := <-c; err != nil {
+			if err := util.IsRegistryError(<-syncErr); err != nil {
 				log.Error(err)
 			}
 		}
+
+		close(syncErr)
 
 		log.Debugf("All remotes: %+v", remotes)
 		controller.config.ControllerSleep()
