@@ -81,7 +81,7 @@ type Error struct {
 
 // Error to string
 func (e Error) Error() string {
-	return fmt.Sprintf("remote error: %s,", e.message)
+	return fmt.Sprintf("Remote %s error: %s,", e.remoteURL, e.message)
 }
 
 // NewError helper method to create a registry pkg error
@@ -182,11 +182,25 @@ func getBearerToken(authRealmURL string) (BearerToken, error) {
 // GetTags get all available tags from remote
 func (r *Remote) GetTags() ([]string, error) {
 	// ToDo: check resp code, parse body, if bearer token is expired retry to get an new
-	body, _, _, err := httpClient.MakeRequestWithHeader(http.MethodGet, r.URL.String()+"/tags/list", map[string]string{
+	body, respCode, _, err := httpClient.MakeRequestWithHeader(http.MethodGet, r.URL.String()+"/tags/list", map[string]string{
 		"Authorization": "Bearer " + r.bearerToken.Token,
 	})
 	if err != nil {
 		return []string{}, err
+	}
+
+	// renew bearer token
+	if respCode == http.StatusUnauthorized {
+		r.bearerToken, _ = getBearerToken(r.authRealmURL)
+		body, respCode, _, err = httpClient.MakeRequestWithHeader(http.MethodGet, r.URL.String()+"/tags/list", map[string]string{
+			"Authorization": "Bearer " + r.bearerToken.Token,
+		})
+		if err != nil {
+			return []string{}, err
+		}
+	}
+	if respCode >= http.StatusBadRequest {
+		return []string{}, NewError(r.URL.String(), fmt.Sprintf("Could not get tags from remote, statuscode: %d", respCode))
 	}
 	var list ListTagsResponse
 
