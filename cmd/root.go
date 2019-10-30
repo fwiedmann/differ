@@ -28,6 +28,7 @@ import (
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/fwiedmann/differ/pkg/controller"
 	"github.com/fwiedmann/differ/pkg/kubernetes-scraper/appv1scraper"
+	"github.com/fwiedmann/differ/pkg/metrics"
 	"github.com/fwiedmann/differ/pkg/opts"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -51,6 +52,12 @@ var rootCmd = cobra.Command{
 		}
 
 		c := controller.New(o)
+
+		go func() {
+			if err := metrics.StartMetricsEndpoint(o.Metrics); err != nil {
+				panic(err)
+			}
+		}()
 		return c.Run(scrapers)
 	},
 }

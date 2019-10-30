@@ -39,6 +39,11 @@ const (
 	DifferAnnotation = "differ/active"
 )
 
+type MetricsEndpoint struct {
+	Port int    `yaml:"port"`
+	Path string `yaml:"path"`
+}
+
 // GitRemote struct describes remote config
 type GitRemote struct {
 	Provider       string `yaml:"provider"`
@@ -49,17 +54,22 @@ type GitRemote struct {
 
 // ControllerConfig holds required controller configuration
 type ControllerConfig struct {
-	Namespace   string        `yaml:"namespace"`
-	GitRemotes  []GitRemote   `yaml:"remotes"`
-	Sleep       string        `yaml:"controllerSleep"`
-	configPath  string        `ymaml:"-"`
-	ParsedSleep time.Duration `ymaml:"-"`
+	Namespace   string          `yaml:"namespace"`
+	GitRemotes  []GitRemote     `yaml:"remotes"`
+	Sleep       string          `yaml:"controllerSleep"`
+	Metrics     MetricsEndpoint `yaml:"metrics"`
+	configPath  string          `ymaml:"-"`
+	ParsedSleep time.Duration   `ymaml:"-"`
 }
 
 // Init initialize controller configuration
 func Init(configPath string) (*ControllerConfig, error) {
 
-	config := &ControllerConfig{configPath: configPath}
+	config := &ControllerConfig{configPath: configPath,
+		Metrics: MetricsEndpoint{
+			Port: 9100,
+			Path: "/metrics",
+		}}
 
 	configFile, err := ioutil.ReadFile(configPath)
 
@@ -89,6 +99,14 @@ func validateConfig(c *ControllerConfig) error {
 	}
 	c.ParsedSleep = duration
 
+	if c.Metrics.Path == "" {
+		log.Errorf("Metrics Path can't be empty, please choose smth. like \"/metrics\" or \"/metrics\"")
+		isValid = false
+	}
+	if c.Metrics.Port == 0 {
+		log.Errorf("Metrics endpoint port can't be 0")
+		isValid = false
+	}
 	if !isValid {
 		return fmt.Errorf("configuration file \"%s\" is invalid. Please resolve errors", c.configPath)
 	}

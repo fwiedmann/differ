@@ -26,6 +26,7 @@ package controller
 
 import (
 	"github.com/fwiedmann/differ/pkg/controller/util"
+	"github.com/fwiedmann/differ/pkg/metrics"
 	"github.com/fwiedmann/differ/pkg/opts"
 	"github.com/fwiedmann/differ/pkg/registry"
 	"github.com/fwiedmann/differ/pkg/store"
@@ -66,6 +67,7 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 				return err
 			}
 		}
+		metrics.DeleteNotScrapedResources(cache)
 		log.Tracef("Scraped resources: %v", cache)
 
 		syncErr := make(chan error, len(cache))
@@ -82,6 +84,7 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 						errChan <- err
 					} else {
 						for _, info := range resourceMetaInfos {
+							metrics.SetGaugeValue("differ_scraped_image", info.ImageName, info.ImageTag, 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace)
 							valid, pattern := util.IsValidTag(info.ImageTag)
 							if !valid {
 								continue
@@ -104,8 +107,6 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 		}
 
 		close(syncErr)
-
-		log.Debugf("All remotes: %+v", remotes)
 		controller.config.ControllerSleep()
 	}
 }

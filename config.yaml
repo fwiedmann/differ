@@ -1,6 +1,9 @@
 namespace: "default"
 controllerSleep: "10s"
+metrics:
+  port: 8080
+  path: "/metrics"
 remotes:
-  - provider: github
-    reponame: foo
-    username: bar
+  - provider: "github"
+    reponame: "foo"
+    username: "bar"
