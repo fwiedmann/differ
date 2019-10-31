@@ -25,6 +25,8 @@
 package controller
 
 import (
+	"sync"
+
 	"github.com/fwiedmann/differ/pkg/controller/util"
 	"github.com/fwiedmann/differ/pkg/metrics"
 	"github.com/fwiedmann/differ/pkg/opts"
@@ -70,11 +72,15 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 		metrics.DeleteNotScrapedResources(cache)
 		log.Tracef("Scraped resources: %v", cache)
 
-		syncErr := make(chan error, len(cache))
+		workerErrors := make(chan error, len(cache))
+		var wg sync.WaitGroup
 
-		// start go routine to analyze each scraped image
+		// start worker for each image
 		for image, imageInfos := range cache {
+			wg.Add(1)
 			go func(imageName string, resourceMetaInfos []store.ResourceMetaInfo, errChan chan<- error) {
+				defer wg.Done()
+
 				if err := remotes.CreateRemoteIfNotExists(imageName); err != nil {
 					errChan <- err
 				} else {
@@ -84,29 +90,34 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 						errChan <- err
 					} else {
 						for _, info := range resourceMetaInfos {
-							metrics.SetGaugeValue("differ_scraped_image", info.ImageName, info.ImageTag, 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace)
+							metrics.SetGaugeValueWithID("differ_scraped_image", info.ImageName, info.ImageTag, 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace)
 							valid, pattern := util.IsValidTag(info.ImageTag)
 							if !valid {
 								continue
 							}
 							sortedTags := util.SortTagsByPattern(remoteTags, pattern)
-							log.Infof("Sorted ImageTags: %v", sortedTags)
+							if sortedTags[len(sortedTags)-1] != info.ImageTag {
+								metrics.SetGaugeValueWithID("differ_update_image", info.ImageName, info.ImageTag, 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace, sortedTags[len(sortedTags)-1])
+							}
 						}
 						errChan <- nil
 					}
 				}
-
-			}(image, imageInfos, syncErr)
+			}(image, imageInfos, workerErrors)
 		}
 
-		// synchronize with all started go routines for each scraped image
-		for range cache {
-			if err := util.IsRegistryError(<-syncErr); err != nil {
-				log.Error(err)
+		// wait for all workers
+		go func() {
+			wg.Wait()
+			close(workerErrors)
+		}()
+
+		for workerError := range workerErrors {
+			if err := util.IsRegistryError(workerError); err != nil {
+				return err
 			}
 		}
 
-		close(syncErr)
 		controller.config.ControllerSleep()
 	}
 }

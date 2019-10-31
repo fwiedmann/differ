@@ -42,10 +42,22 @@ import (
 
 var (
 	gaugeMetrics = map[string]*prometheus.Desc{
+		"differ_config": prometheus.NewDesc(
+			"differ_config",
+			"Shows the configuration of differ",
+			[]string{"version", "namespace", "sleep_duration", "metrics_port", "metrics_path"},
+			nil,
+		),
 		"differ_scraped_image": prometheus.NewDesc(
 			"differ_scraped_image",
 			"Scraped image with meta information",
 			[]string{"image_name", "image_tag", "resource_type", "resource_name", "resource_api_version", "namespace"},
+			nil,
+		),
+		"differ_update_image": prometheus.NewDesc(
+			"differ_update_image",
+			"Image which is an newer version available",
+			[]string{"image_name", "image_tag", "resource_type", "resource_name", "resource_api_version", "namespace", "newer_image_tag"},
 			nil,
 		),
 	}
@@ -86,24 +98,28 @@ func (c *customCollector) Collect(ch chan<- prometheus.Metric) {
 func DeleteNotScrapedResources(cache store.Cache) {
 	for metricName, metrics := range metricStore {
 		for metricID := range metrics {
-			var found bool
-			for _, imageName := range cache {
-				for _, scrapedImage := range imageName {
-					tmpMetricID := fmt.Sprintf("%s %s", scrapedImage.ImageName, scrapedImage.ImageTag)
-					if metricID == tmpMetricID {
-						found = true
+			if metricID == "static metric" {
+				continue
+			} else {
+				var found bool
+				for _, imageName := range cache {
+					for _, scrapedImage := range imageName {
+						tmpMetricID := fmt.Sprintf("%s %s", scrapedImage.ImageName, scrapedImage.ImageTag)
+						if metricID == tmpMetricID {
+							found = true
+						}
 					}
 				}
-			}
-			if !found {
-				delete(metricStore[metricName], metricID)
+				if !found {
+					delete(metricStore[metricName], metricID)
+				}
 			}
 		}
 	}
 }
 
-// SetGaugeValue initialize or update metric value
-func SetGaugeValue(metricName, imageName, imageTag string, value float64, labels ...string) {
+// SetGaugeValueWithID initialize or update metric value
+func SetGaugeValueWithID(metricName, imageName, imageTag string, value float64, labels ...string) {
 	if _, found := gaugeMetrics[metricName]; !found {
 		log.Warnf("Could not find %s metric in metrics pkg", metricName)
 	} else {
@@ -116,6 +132,10 @@ func SetGaugeValue(metricName, imageName, imageTag string, value float64, labels
 			metricType: prometheus.GaugeValue,
 		}
 	}
+}
+
+func SetGaugeValue(metricName string, value float64, labels ...string) {
+	SetGaugeValueWithID(metricName, "static", "metric", value, labels...)
 }
 
 var promRegistry = prometheus.NewRegistry()

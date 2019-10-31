@@ -25,12 +25,13 @@
 package util
 
 import (
+	"regexp"
+	"sort"
+
 	"github.com/fwiedmann/differ/pkg/registry"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"regexp"
-	"sort"
 )
 
 var imageTagPatterns = []string{
@@ -76,7 +77,7 @@ func InitKubernetesClient() (*kubernetes.Clientset, error) {
 
 func IsRegistryError(err error) error {
 	if err, ok := err.(registry.Error); ok {
-		log.Error(err)
+		log.Warn(err)
 		return nil
 	}
 	return err

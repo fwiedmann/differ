@@ -27,17 +27,19 @@ package registry
 import (
 	"encoding/json"
 	"fmt"
-	httpClient "github.com/fwiedmann/differ/pkg/http"
-	log "github.com/sirupsen/logrus"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	httpClient "github.com/fwiedmann/differ/pkg/http"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
 	apiVersion    string = "v2"
 	authHeaderKey string = "Www-Authenticate"
+	dockerHubURL  string = "https://index.docker.io/"
 )
 
 type Remote struct {
@@ -45,6 +47,7 @@ type Remote struct {
 	authRealmURL string
 	bearerToken  BearerToken
 	RemoteLogger *log.Entry
+	Image        string
 }
 
 type BearerToken struct {
@@ -94,7 +97,7 @@ func NewError(remoteURL, errorMessage string) Error {
 
 // NewRemote inits a new remote
 func newRemote(image string) (*Remote, error) {
-	parsedURL, err := parseImageToURL(image)
+	parsedURL, err := parseImageToURL(modifyIfDockerHubImage(image))
 	if err != nil {
 		return nil, NewError(image, fmt.Sprintf("Could no parse image to remote URL: %s", err.Error()))
 	}
@@ -114,6 +117,7 @@ func newRemote(image string) (*Remote, error) {
 		authRealmURL: realm,
 		bearerToken:  token,
 		RemoteLogger: log.WithField("Remote", "Remote:"+parsedURL.String()),
+		Image:        image,
 	}, nil
 }
 
@@ -179,9 +183,15 @@ func getBearerToken(authRealmURL string) (BearerToken, error) {
 	return token, nil
 }
 
+func modifyIfDockerHubImage(image string) string {
+	if !strings.Contains(image, ".") {
+		return fmt.Sprintf("%s%s", dockerHubURL, image)
+	}
+	return image
+}
+
 // GetTags get all available tags from remote
 func (r *Remote) GetTags() ([]string, error) {
-	// ToDo: check resp code, parse body, if bearer token is expired retry to get an new
 	body, respCode, _, err := httpClient.MakeRequestWithHeader(http.MethodGet, r.URL.String()+"/tags/list", map[string]string{
 		"Authorization": "Bearer " + r.bearerToken.Token,
 	})
@@ -189,19 +199,30 @@ func (r *Remote) GetTags() ([]string, error) {
 		return []string{}, err
 	}
 
-	// renew bearer token
 	if respCode == http.StatusUnauthorized {
+
+		r.RemoteLogger.Tracef("Trying to renew bearer token")
 		r.bearerToken, _ = getBearerToken(r.authRealmURL)
 		body, respCode, _, err = httpClient.MakeRequestWithHeader(http.MethodGet, r.URL.String()+"/tags/list", map[string]string{
 			"Authorization": "Bearer " + r.bearerToken.Token,
 		})
 		if err != nil {
 			return []string{}, err
+		} else if respCode == http.StatusUnauthorized {
+			if strings.Contains(r.URL.String(), dockerHubURL) && !strings.Contains(r.URL.Path, "library") {
+				r.RemoteLogger.Debugf("Trying to check if imgae is available under /library on docker hub")
+				tmpRemote, err := newRemote("library/" + r.Image)
+				if err != nil {
+					return []string{}, err
+				}
+				return tmpRemote.GetTags()
+			}
 		}
 	}
-	if respCode >= http.StatusBadRequest {
+	if respCode >= 300 {
 		return []string{}, NewError(r.URL.String(), fmt.Sprintf("Could not get tags from remote, statuscode: %d", respCode))
 	}
+
 	var list ListTagsResponse
 
 	if err := json.Unmarshal(body, &list); err != nil {

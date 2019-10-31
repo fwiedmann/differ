@@ -17,7 +17,7 @@ spec:
       containers:
       - name: differ
         image: differ:dev
-        args: ["--loglevel","debug"]
+        args: ["--loglevel","info"]
         ports:
         - containerPort: 8080
         imagePullPolicy: Never
@@ -57,7 +57,7 @@ metadata:
   name: difer-metrics
 spec:
   type: ClusterIP
-  selector:		
+  selector:
     app: differ
   ports:
   - name: metrics

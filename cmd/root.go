@@ -25,6 +25,8 @@
 package cmd
 
 import (
+	"strconv"
+
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/fwiedmann/differ/pkg/controller"
 	"github.com/fwiedmann/differ/pkg/kubernetes-scraper/appv1scraper"
@@ -50,6 +52,7 @@ var rootCmd = cobra.Command{
 		if err != nil {
 			return err
 		}
+		metrics.SetGaugeValue("differ_config", 1, "test", o.Namespace, o.Sleep, strconv.Itoa(o.Metrics.Port), o.Metrics.Path)
 
 		c := controller.New(o)
 

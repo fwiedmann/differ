@@ -61,4 +61,4 @@ spec:
     spec:
       containers:
         - name: dummy
-          image: library/tomcat
+          image: tomcat
