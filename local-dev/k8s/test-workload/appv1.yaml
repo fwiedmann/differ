@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: test1
-          image: wiedmannfelix/heartbeat
+          image: wiedmannfelix/heartbeat:1.2.0
 
 ---
 apiVersion: apps/v1
@@ -40,7 +40,7 @@ spec:
     spec:
       containers:
         - name: test2
-          image: wiedmannfelix/heartbeat
+          image: wiedmannfelix/heartbeat:1.1.0
 
 ---
 apiVersion: apps/v1
@@ -61,4 +61,4 @@ spec:
     spec:
       containers:
         - name: dummy
-          image: library/tomcat
+          image: tomcat

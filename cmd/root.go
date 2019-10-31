@@ -25,9 +25,12 @@
 package cmd
 
 import (
+	"strconv"
+
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/fwiedmann/differ/pkg/controller"
 	"github.com/fwiedmann/differ/pkg/kubernetes-scraper/appv1scraper"
+	"github.com/fwiedmann/differ/pkg/metrics"
 	"github.com/fwiedmann/differ/pkg/opts"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -49,8 +52,15 @@ var rootCmd = cobra.Command{
 		if err != nil {
 			return err
 		}
+		metrics.SetGaugeValue("differ_config", 1, "test", o.Namespace, o.Sleep, strconv.Itoa(o.Metrics.Port), o.Metrics.Path)
 
 		c := controller.New(o)
+
+		go func() {
+			if err := metrics.StartMetricsEndpoint(o.Metrics); err != nil {
+				panic(err)
+			}
+		}()
 		return c.Run(scrapers)
 	},
 }

@@ -2,8 +2,6 @@ package store
 
 import "strings"
 
-const dockerHubURL string = "https://index.docker.io/"
-
 type (
 	// Cache stores all scraped images with ResourceMetaInfo in the way of:
 	// ["image"][]ResourceMetaInfo{}
@@ -14,7 +12,8 @@ type (
 		APIVersion   string
 		ResourceType string
 		Namespace    string
-		Name         string
+		WorkloadName string
+		ImageName    string
 		ImageTag     string
 	}
 )
@@ -31,29 +30,18 @@ func (store Cache) AddResource(scrapedImage, apiVersion, resourceType, namespace
 		APIVersion:   apiVersion,
 		ResourceType: resourceType,
 		Namespace:    namespace,
-		Name:         name,
+		WorkloadName: name,
+		ImageName:    image,
 		ImageTag:     tag,
 	})
 }
 
 // getResourceStoreKeys extract image and tag from scraped image
-// If image belongs to docker hub URL will be set to dockerHubURL const
+// If image belongs to docker hub URL will be set to DockerHubURL const
 func getResourceStoreKeys(scrapedImage string) (image, tag string) {
-	split := strings.Split(scrapedImage, "/")
-	if !strings.Contains(split[0], ".") {
-		image, tag := splitImage(scrapedImage)
-		return dockerHubURL + image, tag
-	}
-
-	image, tag = splitImage(scrapedImage)
-
-	return image, tag
-}
-
-func splitImage(fullImage string) (image, tag string) {
-	split := strings.Split(fullImage, ":")
+	split := strings.Split(scrapedImage, ":")
 	if len(split) == 2 {
 		return split[0], split[1]
 	}
-	return fullImage, "latest"
+	return scrapedImage, "latest"
 }

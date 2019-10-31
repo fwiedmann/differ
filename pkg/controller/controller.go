@@ -25,7 +25,10 @@
 package controller
 
 import (
+	"sync"
+
 	"github.com/fwiedmann/differ/pkg/controller/util"
+	"github.com/fwiedmann/differ/pkg/metrics"
 	"github.com/fwiedmann/differ/pkg/opts"
 	"github.com/fwiedmann/differ/pkg/registry"
 	"github.com/fwiedmann/differ/pkg/store"
@@ -51,8 +54,8 @@ func New(c *opts.ControllerConfig) *Controller {
 }
 
 // Run starts differ controller loop
-func (c *Controller) Run(resourceScrapers []ResourceScraper) error {
-	remotes := make(map[string]*registry.Remote, 0)
+func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
+	remotes := make(registry.Remotes)
 	for {
 		cache := make(store.Cache)
 
@@ -62,28 +65,59 @@ func (c *Controller) Run(resourceScrapers []ResourceScraper) error {
 		}
 
 		for _, s := range resourceScrapers {
-			if err := s.GetWorkloadResources(kubernetesClient, c.config.Namespace, cache); err != nil {
+			if err := s.GetWorkloadResources(kubernetesClient, controller.config.Namespace, cache); err != nil {
 				return err
 			}
 		}
-		log.Debugf("Scraped resources: %v", cache)
+		metrics.DeleteNotScrapedResources(cache)
+		log.Tracef("Scraped resources: %v", cache)
 
-		for image := range cache {
-			remoteImage, err := registry.NewRemote(image)
-			if err != nil {
-				if val, ok := err.(registry.Error); ok {
-					log.Error(val)
-					continue
+		workerErrors := make(chan error, len(cache))
+		var wg sync.WaitGroup
+
+		// start worker for each image
+		for image, imageInfos := range cache {
+			wg.Add(1)
+			go func(imageName string, resourceMetaInfos []store.ResourceMetaInfo, errChan chan<- error) {
+				defer wg.Done()
+
+				if err := remotes.CreateRemoteIfNotExists(imageName); err != nil {
+					errChan <- err
 				} else {
-					return err
+					remote := remotes[imageName]
+					remoteTags, err := remote.GetTags()
+					if err != nil {
+						errChan <- err
+					} else {
+						for _, info := range resourceMetaInfos {
+							metrics.SetGaugeValueWithID("differ_scraped_image", info.ImageName, info.ImageTag, 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace)
+							valid, pattern := util.IsValidTag(info.ImageTag)
+							if !valid {
+								continue
+							}
+							sortedTags := util.SortTagsByPattern(remoteTags, pattern)
+							if sortedTags[len(sortedTags)-1] != info.ImageTag {
+								metrics.SetGaugeValueWithID("differ_update_image", info.ImageName, info.ImageTag, 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace, sortedTags[len(sortedTags)-1])
+							}
+						}
+						errChan <- nil
+					}
 				}
-			}
-			remotes[remoteImage.URL.String()] = remoteImage
-		}
-		if err := util.RemotesListTags(remotes); err != nil {
-			return err
+			}(image, imageInfos, workerErrors)
 		}
 
-		c.config.ControllerSleep()
+		// wait for all workers
+		go func() {
+			wg.Wait()
+			close(workerErrors)
+		}()
+
+		for workerError := range workerErrors {
+			if err := util.IsRegistryError(workerError); err != nil {
+				return err
+			}
+		}
+
+		controller.config.ControllerSleep()
 	}
 }

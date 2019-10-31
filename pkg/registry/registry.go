@@ -27,25 +27,27 @@ package registry
 import (
 	"encoding/json"
 	"fmt"
-	httpClient "github.com/fwiedmann/differ/pkg/http"
-	log "github.com/sirupsen/logrus"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	httpClient "github.com/fwiedmann/differ/pkg/http"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
 	apiVersion    string = "v2"
 	authHeaderKey string = "Www-Authenticate"
+	dockerHubURL  string = "https://index.docker.io/"
 )
 
 type Remote struct {
 	URL          *url.URL
 	authRealmURL string
 	bearerToken  BearerToken
-	LatestTags   []string
 	RemoteLogger *log.Entry
+	Image        string
 }
 
 type BearerToken struct {
@@ -59,6 +61,21 @@ type ListTagsResponse struct {
 	Tags []string `json:"tags"`
 }
 
+type Remotes map[string]*Remote
+
+func (r Remotes) CreateRemoteIfNotExists(image string) error {
+	if _, found := r[image]; found {
+		log.Debugf("Remote for image %s already exists", image)
+	}
+	remote, err := newRemote(image)
+	if err != nil {
+		return err
+	}
+
+	r[image] = remote
+	return nil
+}
+
 // Error type for registry package
 type Error struct {
 	remoteURL string
@@ -67,7 +84,7 @@ type Error struct {
 
 // Error to string
 func (e Error) Error() string {
-	return fmt.Sprintf("remote error: %s,", e.message)
+	return fmt.Sprintf("Remote %s error: %s,", e.remoteURL, e.message)
 }
 
 // NewError helper method to create a registry pkg error
@@ -79,8 +96,8 @@ func NewError(remoteURL, errorMessage string) Error {
 }
 
 // NewRemote inits a new remote
-func NewRemote(image string) (*Remote, error) {
-	parsedURL, err := parseImageToURL(image)
+func newRemote(image string) (*Remote, error) {
+	parsedURL, err := parseImageToURL(modifyIfDockerHubImage(image))
 	if err != nil {
 		return nil, NewError(image, fmt.Sprintf("Could no parse image to remote URL: %s", err.Error()))
 	}
@@ -100,6 +117,7 @@ func NewRemote(image string) (*Remote, error) {
 		authRealmURL: realm,
 		bearerToken:  token,
 		RemoteLogger: log.WithField("Remote", "Remote:"+parsedURL.String()),
+		Image:        image,
 	}, nil
 }
 
@@ -165,23 +183,51 @@ func getBearerToken(authRealmURL string) (BearerToken, error) {
 	return token, nil
 }
 
+func modifyIfDockerHubImage(image string) string {
+	if !strings.Contains(image, ".") {
+		return fmt.Sprintf("%s%s", dockerHubURL, image)
+	}
+	return image
+}
+
 // GetTags get all available tags from remote
-func (r *Remote) GetTags(e chan<- error) {
-	// ToDo: check resp code, parse body, if bearer token is expired retry to get an new
-	body, _, _, err := httpClient.MakeRequestWithHeader(http.MethodGet, r.URL.String()+"/tags/list", map[string]string{
+func (r *Remote) GetTags() ([]string, error) {
+	body, respCode, _, err := httpClient.MakeRequestWithHeader(http.MethodGet, r.URL.String()+"/tags/list", map[string]string{
 		"Authorization": "Bearer " + r.bearerToken.Token,
 	})
 	if err != nil {
-		e <- NewError(r.URL.String(), err.Error())
+		return []string{}, err
+	}
+
+	if respCode == http.StatusUnauthorized {
+
+		r.RemoteLogger.Tracef("Trying to renew bearer token")
+		r.bearerToken, _ = getBearerToken(r.authRealmURL)
+		body, respCode, _, err = httpClient.MakeRequestWithHeader(http.MethodGet, r.URL.String()+"/tags/list", map[string]string{
+			"Authorization": "Bearer " + r.bearerToken.Token,
+		})
+		if err != nil {
+			return []string{}, err
+		} else if respCode == http.StatusUnauthorized {
+			if strings.Contains(r.URL.String(), dockerHubURL) && !strings.Contains(r.URL.Path, "library") {
+				r.RemoteLogger.Debugf("Trying to check if imgae is available under /library on docker hub")
+				tmpRemote, err := newRemote("library/" + r.Image)
+				if err != nil {
+					return []string{}, err
+				}
+				return tmpRemote.GetTags()
+			}
+		}
+	}
+	if respCode >= 300 {
+		return []string{}, NewError(r.URL.String(), fmt.Sprintf("Could not get tags from remote, statuscode: %d", respCode))
 	}
 
 	var list ListTagsResponse
 
 	if err := json.Unmarshal(body, &list); err != nil {
-		e <- NewError(r.URL.String(), err.Error())
+		return []string{}, NewError(r.URL.String(), err.Error())
 	}
-
-	r.LatestTags = list.Tags
-	r.RemoteLogger.Debugf("Latest tags %v", list.Tags)
-	e <- nil
+	r.RemoteLogger.Tracef("Latest tags %v", list.Tags)
+	return list.Tags, nil
 }

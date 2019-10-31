@@ -17,7 +17,7 @@ spec:
       containers:
       - name: differ
         image: differ:dev
-        args: ["--loglevel","debug"]
+        args: ["--loglevel","info"]
         ports:
         - containerPort: 8080
         imagePullPolicy: Never
@@ -42,7 +42,24 @@ data:
   config.yaml: |
     namespace: "default"
     controllerSleep: "10s"
+    metrics:
+      port: 8080
+      path: "/metrics"
     remotes:
-      - provider: github
-        reponame: foo
-        username: bar
+      - provider: "github"
+        reponame: "foo"
+        username: "bar"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: difer-metrics
+spec:
+  type: ClusterIP
+  selector:
+    app: differ
+  ports:
+  - name: metrics
+    port: 9100
+    targetPort: 8080
