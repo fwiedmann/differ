@@ -72,6 +72,8 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 		metrics.DeleteNotScrapedResources(cache)
 		log.Tracef("Scraped resources: %v", cache)
 
+		// limit concurrent execution to 300 with tokens
+		workerTokens := make(chan struct{}, 300)
 		workerErrors := make(chan error, len(cache))
 		var wg sync.WaitGroup
 
@@ -79,6 +81,7 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 		for image, imageInfos := range cache {
 			wg.Add(1)
 			go func(imageName string, resourceMetaInfos []store.ResourceMetaInfo, errChan chan<- error) {
+				workerTokens <- struct{}{}
 				defer wg.Done()
 
 				if err := remotes.CreateRemoteIfNotExists(imageName); err != nil {
@@ -103,6 +106,7 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 						errChan <- nil
 					}
 				}
+				<-workerTokens
 			}(image, imageInfos, workerErrors)
 		}
 

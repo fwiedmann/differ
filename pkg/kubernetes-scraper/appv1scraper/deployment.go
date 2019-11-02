@@ -44,6 +44,7 @@ func (d Deployment) GetWorkloadResources(c *kubernetes.Clientset, namespace stri
 
 	for _, deployment := range deployments.Items {
 		if _, ok := deployment.Annotations[opts.DifferAnnotation]; ok {
+			// todo: get all imagepullsecrets
 			for _, container := range deployment.Spec.Template.Spec.Containers {
 				resourceStore.AddResource(container.Image, "apps/v1", "deployment", deployment.Namespace, deployment.Name)
 			}

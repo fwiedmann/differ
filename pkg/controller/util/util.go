@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+// todo: add further image tag patterns
 var imageTagPatterns = []string{
 	"^[0-9].[0-9].[0-9]$",
 }
