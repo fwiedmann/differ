@@ -38,7 +38,7 @@ import (
 
 //ResourceScraper save scraped data in store
 type ResourceScraper interface {
-	GetWorkloadResources(c *kubernetes.Clientset, namespace string, scrapedResources store.Cache) error
+	GetWorkloadResources(c *kubernetes.Clientset, namespace string, scrapedResources store.Instance) error
 }
 
 // Controller type struct
@@ -56,8 +56,9 @@ func New(c *opts.ControllerConfig) *Controller {
 // Run starts differ controller loop
 func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 	remotes := make(registry.Remotes)
+
 	for {
-		cache := make(store.Cache)
+		resourceStore := store.NewInstance()
 
 		kubernetesClient, err := util.InitKubernetesClient()
 		if err != nil {
@@ -65,20 +66,20 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 		}
 
 		for _, s := range resourceScrapers {
-			if err := s.GetWorkloadResources(kubernetesClient, controller.config.Namespace, cache); err != nil {
+			if err := s.GetWorkloadResources(kubernetesClient, controller.config.Namespace, resourceStore); err != nil {
 				return err
 			}
 		}
-		metrics.DeleteNotScrapedResources(cache)
-		log.Tracef("Scraped resources: %v", cache)
+		metrics.DeleteNotScrapedResources(resourceStore)
+		log.Tracef("Scraped resources: %v", resourceStore)
 
 		// limit concurrent execution to 300 with tokens
 		workerTokens := make(chan struct{}, 300)
-		workerErrors := make(chan error, len(cache))
+		workerErrors := make(chan error, len(resourceStore.GetDeepCopy()))
 		var wg sync.WaitGroup
 
 		// start worker for each image
-		for image, imageInfos := range cache {
+		for image, imageInfos := range resourceStore.GetDeepCopy() {
 			wg.Add(1)
 			go func(imageName string, resourceMetaInfos []store.ResourceMetaInfo, errChan chan<- error) {
 				workerTokens <- struct{}{}
@@ -108,11 +109,13 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 				}
 				<-workerTokens
 			}(image, imageInfos, workerErrors)
+			log.Infof("%+v", resourceStore)
 		}
 
 		// wait for all workers
 		go func() {
 			wg.Wait()
+			close(workerTokens)
 			close(workerErrors)
 		}()
 

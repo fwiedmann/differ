@@ -63,6 +63,7 @@ type ListTagsResponse struct {
 
 type Remotes map[string]*Remote
 
+// todo: pass all resource auths and retry with each one
 func (r Remotes) CreateRemoteIfNotExists(image string) error {
 	if _, found := r[image]; found {
 		log.Debugf("Remote for image %s already exists", image)
