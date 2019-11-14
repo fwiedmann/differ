@@ -1,12 +1,27 @@
 package store
 
-import "strings"
+import (
+	"reflect"
+	"strings"
+	"sync"
+
+	v1 "k8s.io/api/core/v1"
+)
+
+// todo: delete not given resources, to put instance at top level of controller.Run()
 
 type (
 	// Cache stores all scraped images with ResourceMetaInfo in the way of:
 	// ["image"][]ResourceMetaInfo{}
-	Cache map[string][]ResourceMetaInfo
+	Instance struct {
+		data map[string][]ResourceMetaInfo
+		m    sync.Mutex
+	}
 
+	ImagePullSecret struct {
+		Username string
+		Password string
+	}
 	// ResourceMetaInfo contains unique meta information from scraped resource types
 	ResourceMetaInfo struct {
 		APIVersion   string
@@ -15,29 +30,69 @@ type (
 		WorkloadName string
 		ImageName    string
 		ImageTag     string
+		Secrets      []ImagePullSecret
 	}
 )
 
-// AddResource add new resource information to store
-func (store Cache) AddResource(scrapedImage, apiVersion, resourceType, namespace, name string) {
-	image, tag := getResourceStoreKeys(scrapedImage)
-
-	if _, found := store[image]; !found {
-		store[image] = make([]ResourceMetaInfo, 0)
+func NewInstance() Instance {
+	return Instance{
+		data: make(map[string][]ResourceMetaInfo, 0),
+		m:    sync.Mutex{},
 	}
+}
 
-	store[image] = append(store[image], ResourceMetaInfo{
-		APIVersion:   apiVersion,
-		ResourceType: resourceType,
-		Namespace:    namespace,
-		WorkloadName: name,
-		ImageName:    image,
-		ImageTag:     tag,
-	})
+// AddResource add new resource information to store
+func (storeInstance Instance) AddResource(apiVersion, kind, namespace, name string, containers []v1.Container, secrets map[string][]ImagePullSecret) {
+	storeInstance.m.Lock()
+	defer storeInstance.m.Unlock()
+	for _, container := range containers {
+
+		image, tag := getResourceStoreKeys(container.Image)
+
+		if _, found := storeInstance.data[image]; !found {
+			storeInstance.data[image] = make([]ResourceMetaInfo, 0)
+		}
+
+		var matchingSecrets []ImagePullSecret
+		for registry, regsistrySecrets := range secrets {
+			// consider images from dockerHub, they do not contain any dots
+			if strings.Contains(image, registry) || !strings.Contains(image, ".") {
+				matchingSecrets = append(matchingSecrets, regsistrySecrets...)
+			}
+		}
+		resourceInfo := ResourceMetaInfo{
+			APIVersion:   apiVersion,
+			ResourceType: kind,
+			Namespace:    namespace,
+			WorkloadName: name,
+			ImageName:    image,
+			ImageTag:     tag,
+			Secrets:      matchingSecrets,
+		}
+		var exists bool
+		if len(storeInstance.data[image]) < 0 {
+			for _, existingImage := range storeInstance.data[image] {
+				if reflect.DeepEqual(existingImage, resourceInfo) {
+					exists = true
+				}
+			}
+
+		}
+		if !exists {
+			storeInstance.data[image] = append(storeInstance.data[image], resourceInfo)
+		}
+	}
+}
+
+func (storeInstance Instance) GetDeepCopy() map[string][]ResourceMetaInfo {
+
+	storeInstance.m.Lock()
+	defer storeInstance.m.Unlock()
+
+	return storeInstance.data
 }
 
 // getResourceStoreKeys extract image and tag from scraped image
-// If image belongs to docker hub URL will be set to DockerHubURL const
 func getResourceStoreKeys(scrapedImage string) (image, tag string) {
 	split := strings.Split(scrapedImage, ":")
 	if len(split) == 2 {

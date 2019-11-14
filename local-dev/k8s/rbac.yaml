@@ -5,9 +5,9 @@ metadata:
   name: differ-reader
   namespace: default
 rules:
-- apiGroups: ["apps"]
-  resources: ["deployments", "replicasets", "pods"]
-  verbs: ["*"] 
+- apiGroups: ["apps",""]
+  resources: ["deployments", "replicasets", "pods", "secrets"]
+  verbs: ["*"]
 ---
 apiVersion: v1
 kind: ServiceAccount

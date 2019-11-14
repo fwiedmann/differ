@@ -38,9 +38,11 @@ spec:
       labels:
         app: test2
     spec:
+      imagePullSecrets:
+        - name: demo
       containers:
         - name: test2
-          image: wiedmannfelix/heartbeat:1.1.0
+          image: wiedmannfelix/airgab:latest
 
 ---
 apiVersion: apps/v1

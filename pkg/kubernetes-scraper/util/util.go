@@ -22,35 +22,56 @@
  * SOFTWARE.
  */
 
-package appv1scraper
+package util
 
 import (
-	"github.com/fwiedmann/differ/pkg/kubernetes-scraper/util"
-	"github.com/fwiedmann/differ/pkg/opts"
+	"encoding/json"
+
 	"github.com/fwiedmann/differ/pkg/store"
+
+	log "github.com/sirupsen/logrus"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	core "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
-// Deployment type struct
-type Deployment struct {
-}
+func GetRegistryAuth(secretRefs []core.LocalObjectReference, client *kubernetes.Clientset, namespace string) (map[string][]store.ImagePullSecret, error) {
+	marshaledAuths := make(map[string][]store.ImagePullSecret)
 
-// GetWorkloadResources scrapes all appsV1 deployments
-func (d Deployment) GetWorkloadResources(c *kubernetes.Clientset, namespace string, resourceStore store.Instance) error {
-	deployments, err := c.AppsV1().Deployments(namespace).List(v1.ListOptions{})
-	if err != nil {
-		return err
-	}
+	for _, secretRef := range secretRefs {
+		secret, err := client.CoreV1().Secrets(namespace).Get(secretRef.Name, v1.GetOptions{
+			TypeMeta: v1.TypeMeta{
+				Kind: "kubernetes.io/dockerconfigjson",
+			},
+		})
+		if err != nil {
+			log.Error(err)
+			continue
+		}
 
-	for _, deployment := range deployments.Items {
-		if _, ok := deployment.Annotations[opts.DifferAnnotation]; ok {
-			authSecrets, err := util.GetRegistryAuth(deployment.Spec.Template.Spec.ImagePullSecrets, c, namespace)
-			if err != nil {
-				return err
+		// using map interface for unmarshal because of arbitrary keys in the dockerconfigjson
+		jsonContent := make(map[string]interface{})
+		err = json.Unmarshal(secret.Data[".dockerconfigjson"], &jsonContent)
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+
+		for registry, auths := range jsonContent["auths"].(map[string]interface{}) {
+			auth := store.ImagePullSecret{}
+			for jsonAuthKey, jsonAuthValue := range auths.(map[string]interface{}) {
+
+				switch jsonAuthKey {
+				case "username":
+					auth.Username = jsonAuthValue.(string)
+				case "password":
+					auth.Password = jsonAuthValue.(string)
+				}
 			}
-			resourceStore.AddResource("appsV1", "deployment", deployment.Namespace, deployment.Name, deployment.Spec.Template.Spec.Containers, authSecrets)
+			marshaledAuths[registry] = append(marshaledAuths[registry], auth)
 		}
 	}
-	return nil
+	return marshaledAuths, nil
 }

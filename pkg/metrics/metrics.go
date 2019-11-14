@@ -95,14 +95,14 @@ func (c *customCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 // DeleteNotScrapedResources which are not scraped by the last scrape
-func DeleteNotScrapedResources(cache store.Cache) {
+func DeleteNotScrapedResources(cache store.Instance) {
 	for metricName, metrics := range metricStore {
 		for metricID := range metrics {
 			if metricID == "static metric" {
 				continue
 			} else {
 				var found bool
-				for _, imageName := range cache {
+				for _, imageName := range cache.GetDeepCopy() {
 					for _, scrapedImage := range imageName {
 						tmpMetricID := fmt.Sprintf("%s %s", scrapedImage.ImageName, scrapedImage.ImageTag)
 						if metricID == tmpMetricID {
