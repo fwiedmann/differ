@@ -3,7 +3,7 @@
     <img src="images/differ_logo.png" width=72 height=72>
   </a>
 
-  <h3 align="center">Differt</h3>
+  <h3 align="center">Differ</h3>
 
   <p align="center">
      Kubernetes controller differentiate images of running container in clusters namespaces against the source registry 
