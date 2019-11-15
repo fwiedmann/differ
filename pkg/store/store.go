@@ -15,7 +15,7 @@ type (
 	// ["image"][]ResourceMetaInfo{}
 	Instance struct {
 		data map[string][]ResourceMetaInfo
-		m    sync.Mutex
+		m    sync.RWMutex
 	}
 
 	ImagePullSecret struct {
@@ -37,7 +37,7 @@ type (
 func NewInstance() Instance {
 	return Instance{
 		data: make(map[string][]ResourceMetaInfo, 0),
-		m:    sync.Mutex{},
+		m:    sync.RWMutex{},
 	}
 }
 
@@ -45,6 +45,7 @@ func NewInstance() Instance {
 func (storeInstance Instance) AddResource(apiVersion, kind, namespace, name string, containers []v1.Container, secrets map[string][]ImagePullSecret) {
 	storeInstance.m.Lock()
 	defer storeInstance.m.Unlock()
+
 	for _, container := range containers {
 
 		image, tag := getResourceStoreKeys(container.Image)
@@ -86,10 +87,13 @@ func (storeInstance Instance) AddResource(apiVersion, kind, namespace, name stri
 
 func (storeInstance Instance) GetDeepCopy() map[string][]ResourceMetaInfo {
 
-	storeInstance.m.Lock()
-	defer storeInstance.m.Unlock()
-
-	return storeInstance.data
+	storeInstance.m.RLock()
+	defer storeInstance.m.RUnlock()
+	deepCopy := make(map[string][]ResourceMetaInfo)
+	for key, value := range storeInstance.data {
+		deepCopy[key] = value
+	}
+	return deepCopy
 }
 
 // getResourceStoreKeys extract image and tag from scraped image
