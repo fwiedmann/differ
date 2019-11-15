@@ -45,7 +45,6 @@ func NewInstance() Instance {
 func (storeInstance Instance) AddResource(apiVersion, kind, namespace, name string, containers []v1.Container, secrets map[string][]ImagePullSecret) {
 	storeInstance.m.Lock()
 	defer storeInstance.m.Unlock()
-
 	for _, container := range containers {
 
 		image, tag := getResourceStoreKeys(container.Image)
@@ -71,7 +70,7 @@ func (storeInstance Instance) AddResource(apiVersion, kind, namespace, name stri
 			Secrets:      matchingSecrets,
 		}
 		var exists bool
-		if len(storeInstance.data[image]) < 0 {
+		if len(storeInstance.data[image]) > 0 {
 			for _, existingImage := range storeInstance.data[image] {
 				if reflect.DeepEqual(existingImage, resourceInfo) {
 					exists = true
