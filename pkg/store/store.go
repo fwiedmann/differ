@@ -15,7 +15,7 @@ type (
 	// ["image"][]ResourceMetaInfo{}
 	Instance struct {
 		data map[string][]ResourceMetaInfo
-		m    sync.Mutex
+		m    sync.RWMutex
 	}
 
 	ImagePullSecret struct {
@@ -37,7 +37,7 @@ type (
 func NewInstance() Instance {
 	return Instance{
 		data: make(map[string][]ResourceMetaInfo, 0),
-		m:    sync.Mutex{},
+		m:    sync.RWMutex{},
 	}
 }
 
@@ -70,7 +70,7 @@ func (storeInstance Instance) AddResource(apiVersion, kind, namespace, name stri
 			Secrets:      matchingSecrets,
 		}
 		var exists bool
-		if len(storeInstance.data[image]) < 0 {
+		if len(storeInstance.data[image]) > 0 {
 			for _, existingImage := range storeInstance.data[image] {
 				if reflect.DeepEqual(existingImage, resourceInfo) {
 					exists = true
@@ -86,10 +86,20 @@ func (storeInstance Instance) AddResource(apiVersion, kind, namespace, name stri
 
 func (storeInstance Instance) GetDeepCopy() map[string][]ResourceMetaInfo {
 
-	storeInstance.m.Lock()
-	defer storeInstance.m.Unlock()
+	storeInstance.m.RLock()
+	defer storeInstance.m.RUnlock()
+	deepCopy := make(map[string][]ResourceMetaInfo)
+	for key, value := range storeInstance.data {
+		deepCopy[key] = value
+	}
+	return deepCopy
+}
 
-	return storeInstance.data
+// Size return current scraped image count
+func (storeInstance Instance) Size() int {
+	storeInstance.m.RLock()
+	defer storeInstance.m.RUnlock()
+	return len(storeInstance.data)
 }
 
 // getResourceStoreKeys extract image and tag from scraped image

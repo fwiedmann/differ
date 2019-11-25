@@ -30,7 +30,10 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/fwiedmann/differ/pkg/store"
 
 	httpClient "github.com/fwiedmann/differ/pkg/http"
 	log "github.com/sirupsen/logrus"
@@ -48,6 +51,7 @@ type Remote struct {
 	bearerToken  BearerToken
 	RemoteLogger *log.Entry
 	Image        string
+	auths        []store.ImagePullSecret
 }
 
 type BearerToken struct {
@@ -61,20 +65,42 @@ type ListTagsResponse struct {
 	Tags []string `json:"tags"`
 }
 
-type Remotes map[string]*Remote
+// todo: make cuncurrent save
+type Remotes struct {
+	data map[string]*Remote
+	m    sync.RWMutex
+}
+
+func NewRemoteStore() Remotes {
+	return Remotes{
+		data: make(map[string]*Remote, 0),
+		m:    sync.RWMutex{},
+	}
+}
 
 // todo: pass all resource auths and retry with each one
-func (r Remotes) CreateRemoteIfNotExists(image string) error {
-	if _, found := r[image]; found {
-		log.Debugf("Remote for image %s already exists", image)
+func (r Remotes) CreateRemoteIfNotExists(image string, gatheredAuths []store.ImagePullSecret) error {
+	r.m.Lock()
+	defer r.m.Unlock()
+
+	if remote, found := r.data[image]; found {
+		log.Debugf("Remote for image %s already exists, only update auths", image)
+		remote.auths = gatheredAuths
 	}
 	remote, err := newRemote(image)
 	if err != nil {
 		return err
 	}
 
-	r[image] = remote
+	r.data[image] = remote
 	return nil
+}
+
+func (r Remotes) GetRemoteByID(image string) *Remote {
+	r.m.RLock()
+	defer r.m.RUnlock()
+
+	return r.data[image]
 }
 
 // Error type for registry package
@@ -97,7 +123,7 @@ func NewError(remoteURL, errorMessage string) Error {
 }
 
 // NewRemote inits a new remote
-func newRemote(image string) (*Remote, error) {
+func newRemote(image string, gatheredAuths []store.ImagePullSecret) (*Remote, error) {
 	parsedURL, err := parseImageToURL(modifyIfDockerHubImage(image))
 	if err != nil {
 		return nil, NewError(image, fmt.Sprintf("Could no parse image to remote URL: %s", err.Error()))
@@ -119,6 +145,7 @@ func newRemote(image string) (*Remote, error) {
 		bearerToken:  token,
 		RemoteLogger: log.WithField("Remote", "Remote:"+parsedURL.String()),
 		Image:        image,
+		auths:        gatheredAuths,
 	}, nil
 }
 
@@ -172,6 +199,7 @@ func getAuthRealmURL(remoteURL *url.URL) (string, error) {
 	return realmURL, nil
 }
 
+// todo implement retry mechanisms for each auth
 func getBearerToken(authRealmURL string) (BearerToken, error) {
 	body, _, _, err := httpClient.MakeRequest(http.MethodGet, authRealmURL)
 	if err != nil {
@@ -211,8 +239,8 @@ func (r *Remote) GetTags() ([]string, error) {
 			return []string{}, err
 		} else if respCode == http.StatusUnauthorized {
 			if strings.Contains(r.URL.String(), dockerHubURL) && !strings.Contains(r.URL.Path, "library") {
-				r.RemoteLogger.Debugf("Trying to check if imgae is available under /library on docker hub")
-				tmpRemote, err := newRemote("library/" + r.Image)
+				r.RemoteLogger.Debugf("Trying to check if image is available under /library on docker hub")
+				tmpRemote, err := newRemote("library/"+r.Image, r.auths)
 				if err != nil {
 					return []string{}, err
 				}
