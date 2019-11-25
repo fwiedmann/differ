@@ -95,6 +95,13 @@ func (storeInstance Instance) GetDeepCopy() map[string][]ResourceMetaInfo {
 	return deepCopy
 }
 
+// Size return current scraped image count
+func (storeInstance Instance) Size() int {
+	storeInstance.m.RLock()
+	defer storeInstance.m.RUnlock()
+	return len(storeInstance.data)
+}
+
 // getResourceStoreKeys extract image and tag from scraped image
 func getResourceStoreKeys(scrapedImage string) (image, tag string) {
 	split := strings.Split(scrapedImage, ":")

@@ -55,7 +55,7 @@ func New(c *opts.ControllerConfig) *Controller {
 
 // Run starts differ controller loop
 func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
-	remotes := make(registry.Remotes)
+	remotes := registry.NewRemoteStore()
 
 	for {
 		resourceStore := store.NewInstance()
@@ -75,7 +75,7 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 
 		// limit concurrent execution to 300 with tokens
 		workerTokens := make(chan struct{}, 300)
-		workerErrors := make(chan error, len(resourceStore.GetDeepCopy()))
+		workerErrors := make(chan error, resourceStore.Size())
 		var wg sync.WaitGroup
 
 		// start worker for each image
@@ -88,7 +88,9 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 				if err := remotes.CreateRemoteIfNotExists(imageName); err != nil {
 					errChan <- err
 				} else {
-					remote := remotes[imageName]
+					auths := util.GatherAuths(resourceMetaInfos)
+
+					remote := remotes.GetRemoteByID(image)
 					remoteTags, err := remote.GetTags()
 					if err != nil {
 						errChan <- err
@@ -109,7 +111,7 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 				}
 				<-workerTokens
 			}(image, imageInfos, workerErrors)
-			log.Infof("%+v", resourceStore)
+			log.Debugf("%+v", resourceStore)
 		}
 
 		// wait for all workers

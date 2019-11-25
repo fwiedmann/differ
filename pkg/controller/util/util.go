@@ -25,8 +25,11 @@
 package util
 
 import (
+	"reflect"
 	"regexp"
 	"sort"
+
+	"github.com/fwiedmann/differ/pkg/store"
 
 	"github.com/fwiedmann/differ/pkg/registry"
 	log "github.com/sirupsen/logrus"
@@ -82,4 +85,23 @@ func IsRegistryError(err error) error {
 		return nil
 	}
 	return err
+}
+
+func GatherAuths(resourceInfos []store.ResourceMetaInfo) []store.ImagePullSecret {
+	auths := make([]store.ImagePullSecret, 0)
+
+	for _, resourceInfo := range resourceInfos {
+		for _, secret := range resourceInfo.Secrets {
+			var exists bool
+			for _, storedSecret := range auths {
+				if reflect.DeepEqual(secret, storedSecret) {
+					exists = true
+				}
+			}
+			if !exists {
+				auths = append(auths, secret)
+			}
+		}
+	}
+	return auths
 }
