@@ -84,13 +84,13 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 			go func(imageName string, resourceMetaInfos []store.ResourceMetaInfo, errChan chan<- error) {
 				workerTokens <- struct{}{}
 				defer wg.Done()
+				auths := util.GatherAuths(resourceMetaInfos)
 
-				if err := remotes.CreateRemoteIfNotExists(imageName); err != nil {
+				if err := remotes.CreateRemoteIfNotExists(imageName, auths); err != nil {
 					errChan <- err
 				} else {
-					auths := util.GatherAuths(resourceMetaInfos)
 
-					remote := remotes.GetRemoteByID(image)
+					remote := remotes.GetRemoteByID(imageName)
 					remoteTags, err := remote.GetTags()
 					if err != nil {
 						errChan <- err

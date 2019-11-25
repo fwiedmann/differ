@@ -87,7 +87,7 @@ func (r Remotes) CreateRemoteIfNotExists(image string, gatheredAuths []store.Ima
 		log.Debugf("Remote for image %s already exists, only update auths", image)
 		remote.auths = gatheredAuths
 	}
-	remote, err := newRemote(image)
+	remote, err := newRemote(image, gatheredAuths)
 	if err != nil {
 		return err
 	}
