@@ -28,8 +28,10 @@ import (
 	"github.com/fwiedmann/differ/cmd"
 )
 
+var version string
+
 func main() {
-	if err := cmd.Execute(); err != nil {
+	if err := cmd.Execute(version); err != nil {
 		panic(err)
 	}
 }

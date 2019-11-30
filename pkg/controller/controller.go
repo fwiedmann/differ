@@ -38,7 +38,7 @@ import (
 
 //ResourceScraper save scraped data in store
 type ResourceScraper interface {
-	GetWorkloadResources(c *kubernetes.Clientset, namespace string, scrapedResources store.Instance) error
+	GetWorkloadResources(c *kubernetes.Clientset, namespace string, scrapedResources *store.Instance) error
 }
 
 // Controller type struct

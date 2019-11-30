@@ -38,7 +38,7 @@ type Deployment struct {
 
 // todo: implement watch method with chanels
 // GetWorkloadResources scrapes all appsV1 deployments
-func (d Deployment) GetWorkloadResources(c *kubernetes.Clientset, namespace string, resourceStore store.Instance) error {
+func (d Deployment) GetWorkloadResources(c *kubernetes.Clientset, namespace string, resourceStore *store.Instance) error {
 	deployments, err := c.AppsV1().Deployments(namespace).List(v1.ListOptions{})
 	if err != nil {
 		return err

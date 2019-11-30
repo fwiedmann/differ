@@ -70,14 +70,14 @@ type Remotes struct {
 	m    sync.RWMutex
 }
 
-func NewRemoteStore() Remotes {
-	return Remotes{
-		data: make(map[string]*Remote, 0),
+func NewRemoteStore() *Remotes {
+	return &Remotes{
+		data: make(map[string]*Remote),
 		m:    sync.RWMutex{},
 	}
 }
 
-func (r Remotes) CreateOrUpdateRemote(image string, gatheredAuths []store.ImagePullSecret) error {
+func (r *Remotes) CreateOrUpdateRemote(image string, gatheredAuths []store.ImagePullSecret) error {
 	r.m.Lock()
 	defer r.m.Unlock()
 
@@ -95,7 +95,7 @@ func (r Remotes) CreateOrUpdateRemote(image string, gatheredAuths []store.ImageP
 	return nil
 }
 
-func (r Remotes) GetRemoteByID(image string) *Remote {
+func (r *Remotes) GetRemoteByID(image string) *Remote {
 	r.m.RLock()
 	defer r.m.RUnlock()
 
@@ -238,7 +238,7 @@ func listTags(remoteURL, authToken string) ([]byte, int, error) {
 
 // GetTags get all available tags from remote
 func (r *Remote) GetTags() ([]string, error) {
-	respBody := make([]byte, 0)
+	var respBody []byte
 	var list ListTagsResponse
 	if r.bearerToken.Token == "" {
 		// add empty auth for code reductions

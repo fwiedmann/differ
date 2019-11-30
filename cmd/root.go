@@ -52,7 +52,7 @@ var rootCmd = cobra.Command{
 		if err != nil {
 			return err
 		}
-		metrics.SetGaugeValue("differ_config", 1, "test", o.Namespace, o.Sleep, strconv.Itoa(o.Metrics.Port), o.Metrics.Path)
+		metrics.SetGaugeValue("differ_config", 1, cmd.Version, o.Namespace, o.Sleep, strconv.Itoa(o.Metrics.Port), o.Metrics.Path)
 
 		c := controller.New(o)
 
@@ -78,7 +78,8 @@ func init() {
 }
 
 // Execute executes the rootCmd
-func Execute() error {
+func Execute(version string) error {
+	rootCmd.Version = version
 	return rootCmd.Execute()
 }
 

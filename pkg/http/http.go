@@ -21,18 +21,16 @@ func MakeRequestWithBasicAuth(method, url, username, password string) (body []by
 	if err != nil {
 		return
 	}
-	if username != "" && password != "" {
-		log.Tracef("MakeRequestWithBasicAuth: ")
-		req.SetBasicAuth(username, password)
-	} else {
 
-	}
+	log.Tracef("MakeRequestWithBasicAuth: ")
+	req.SetBasicAuth(username, password)
+
 	client := http.Client{}
 	resp, err := client.Do(req)
-	defer resp.Body.Close()
 	if err != nil {
 		return
 	}
+	defer resp.Body.Close()
 	log.Tracef("Status code  %d for url: %s", resp.StatusCode, url)
 
 	responseCode = resp.StatusCode
@@ -54,10 +52,10 @@ func MakeRequestWithHeader(method, url string, headers map[string]string) (body 
 	}
 	client := http.Client{}
 	resp, err := client.Do(req)
-	defer resp.Body.Close()
 	if err != nil {
 		return
 	}
+	defer resp.Body.Close()
 	log.Tracef("Status code  %d for url: %s", resp.StatusCode, url)
 
 	responseCode = resp.StatusCode
