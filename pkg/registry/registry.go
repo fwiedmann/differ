@@ -65,29 +65,28 @@ type ListTagsResponse struct {
 	Tags []string `json:"tags"`
 }
 
-// todo: make cuncurrent save
 type Remotes struct {
 	data map[string]*Remote
 	m    sync.RWMutex
 }
 
-func NewRemoteStore() Remotes {
-	return Remotes{
-		data: make(map[string]*Remote, 0),
+func NewRemoteStore() *Remotes {
+	return &Remotes{
+		data: make(map[string]*Remote),
 		m:    sync.RWMutex{},
 	}
 }
 
-// todo: pass all resource auths and retry with each one
-func (r Remotes) CreateRemoteIfNotExists(image string, gatheredAuths []store.ImagePullSecret) error {
+func (r *Remotes) CreateOrUpdateRemote(image string, gatheredAuths []store.ImagePullSecret) error {
 	r.m.Lock()
 	defer r.m.Unlock()
 
 	if remote, found := r.data[image]; found {
 		log.Debugf("Remote for image %s already exists, only update auths", image)
 		remote.auths = gatheredAuths
+		return nil
 	}
-	remote, err := newRemote(image)
+	remote, err := newRemote(image, gatheredAuths)
 	if err != nil {
 		return err
 	}
@@ -96,7 +95,7 @@ func (r Remotes) CreateRemoteIfNotExists(image string, gatheredAuths []store.Ima
 	return nil
 }
 
-func (r Remotes) GetRemoteByID(image string) *Remote {
+func (r *Remotes) GetRemoteByID(image string) *Remote {
 	r.m.RLock()
 	defer r.m.RUnlock()
 
@@ -134,15 +133,9 @@ func newRemote(image string, gatheredAuths []store.ImagePullSecret) (*Remote, er
 		return nil, NewError(parsedURL.String(), "Could not get registry authURL. Error: "+err.Error())
 	}
 
-	token, err := getBearerToken(realm)
-	if err != nil {
-		return nil, NewError(parsedURL.String(), "Could not bearer token. Error: "+err.Error())
-	}
-
 	return &Remote{
 		URL:          parsedURL,
 		authRealmURL: realm,
-		bearerToken:  token,
 		RemoteLogger: log.WithField("Remote", "Remote:"+parsedURL.String()),
 		Image:        image,
 		auths:        gatheredAuths,
@@ -199,12 +192,27 @@ func getAuthRealmURL(remoteURL *url.URL) (string, error) {
 	return realmURL, nil
 }
 
-// todo implement retry mechanisms for each auth
-func getBearerToken(authRealmURL string) (BearerToken, error) {
-	body, _, _, err := httpClient.MakeRequest(http.MethodGet, authRealmURL)
-	if err != nil {
-		return BearerToken{}, err
+func getBearerToken(authRealmURL string, authSecret store.ImagePullSecret) (BearerToken, error) {
+	var body []byte
+	var err error
+	var respCode int
+
+	if authSecret.Username != "" && authSecret.Password != "" {
+		body, respCode, _, err = httpClient.MakeRequestWithBasicAuth(http.MethodGet, authRealmURL, authSecret.Username, authSecret.Password)
+		if err != nil {
+			return BearerToken{}, err
+		}
+	} else {
+		body, respCode, _, err = httpClient.MakeRequest(http.MethodGet, authRealmURL)
+		if err != nil {
+			return BearerToken{}, err
+		}
 	}
+
+	if respCode >= http.StatusMultipleChoices {
+		return BearerToken{}, NewError(authRealmURL, fmt.Sprintf("Could not get bearer token: status code %d", respCode))
+	}
+
 	var token BearerToken
 	if err := json.Unmarshal(body, &token); err != nil {
 		return BearerToken{}, err
@@ -218,45 +226,85 @@ func modifyIfDockerHubImage(image string) string {
 	}
 	return image
 }
+func listTags(remoteURL, authToken string) ([]byte, int, error) {
+	body, respCode, _, err := httpClient.MakeRequestWithHeader(http.MethodGet, remoteURL+"/tags/list", map[string]string{
+		"Authorization": "Bearer " + authToken,
+	})
+	if err != nil {
+		return []byte{}, 0, err
+	}
+	return body, respCode, nil
+}
 
 // GetTags get all available tags from remote
 func (r *Remote) GetTags() ([]string, error) {
-	body, respCode, _, err := httpClient.MakeRequestWithHeader(http.MethodGet, r.URL.String()+"/tags/list", map[string]string{
-		"Authorization": "Bearer " + r.bearerToken.Token,
-	})
-	if err != nil {
-		return []string{}, err
-	}
+	var respBody []byte
+	var list ListTagsResponse
+	if r.bearerToken.Token == "" {
+		// add empty auth for code reductions
+		if len(r.auths) == 0 {
+			r.auths = append(r.auths, store.ImagePullSecret{
+				Username: "",
+				Password: "",
+			})
+		}
+		// trying to get tags from auhts, will break if successfully
+		for _, auth := range r.auths {
+			token, err := getBearerToken(r.authRealmURL, auth)
+			if err != nil {
+				r.RemoteLogger.Warnf("%s", err.Error())
+				continue
+			}
+			body, respCode, err := listTags(r.URL.String(), token.Token)
+			if err != nil {
+				return []string{}, err
+			}
 
-	if respCode == http.StatusUnauthorized {
+			if respCode >= http.StatusMultipleChoices {
+				if respCode == http.StatusUnauthorized {
+					if strings.Contains(r.URL.String(), dockerHubURL) && !strings.Contains(r.URL.Path, "library") {
+						r.RemoteLogger.Debugf("Trying to check if image is available under /library on docker hub")
+						tmpRemote, err := newRemote("library/"+r.Image, r.auths)
+						if err != nil {
+							return []string{}, err
+						}
+						return tmpRemote.GetTags()
+					}
+				}
+				continue
+			}
 
-		r.RemoteLogger.Tracef("Trying to renew bearer token")
-		r.bearerToken, _ = getBearerToken(r.authRealmURL)
-		body, respCode, _, err = httpClient.MakeRequestWithHeader(http.MethodGet, r.URL.String()+"/tags/list", map[string]string{
-			"Authorization": "Bearer " + r.bearerToken.Token,
-		})
+			respBody = body
+			// set token as default token
+			r.bearerToken = token
+
+			if err := json.Unmarshal(respBody, &list); err != nil {
+				return []string{}, NewError(r.URL.String(), err.Error())
+			}
+			r.RemoteLogger.Tracef("Latest tags %v", list.Tags)
+			return list.Tags, nil
+		}
+	} else {
+		respBody, respCode, err := listTags(r.URL.String(), r.bearerToken.Token)
 		if err != nil {
 			return []string{}, err
-		} else if respCode == http.StatusUnauthorized {
-			if strings.Contains(r.URL.String(), dockerHubURL) && !strings.Contains(r.URL.Path, "library") {
-				r.RemoteLogger.Debugf("Trying to check if image is available under /library on docker hub")
-				tmpRemote, err := newRemote("library/"+r.Image, r.auths)
-				if err != nil {
-					return []string{}, err
-				}
-				return tmpRemote.GetTags()
-			}
 		}
-	}
-	if respCode >= 300 {
-		return []string{}, NewError(r.URL.String(), fmt.Sprintf("Could not get tags from remote, statuscode: %d", respCode))
-	}
 
-	var list ListTagsResponse
+		// If provided token is not valid anymore, reset and call GetTags again.
+		if respCode >= http.StatusMultipleChoices {
+			r.RemoteLogger.Tracef("Reset Bearer Token")
+			r.RemoteLogger.Tracef("Could not get tags : status code: %d", respCode)
+			r.bearerToken = BearerToken{}
 
-	if err := json.Unmarshal(body, &list); err != nil {
-		return []string{}, NewError(r.URL.String(), err.Error())
+			return r.GetTags()
+		}
+
+		if err := json.Unmarshal(respBody, &list); err != nil {
+			return []string{}, NewError(r.URL.String(), err.Error())
+		}
+		r.RemoteLogger.Tracef("Latest tags %v", list.Tags)
+		return list.Tags, nil
 	}
-	r.RemoteLogger.Tracef("Latest tags %v", list.Tags)
-	return list.Tags, nil
+	return []string{}, NewError(r.URL.String(), "Could not get tags")
+
 }

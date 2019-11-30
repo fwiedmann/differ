@@ -38,7 +38,7 @@ import (
 
 //ResourceScraper save scraped data in store
 type ResourceScraper interface {
-	GetWorkloadResources(c *kubernetes.Clientset, namespace string, scrapedResources store.Instance) error
+	GetWorkloadResources(c *kubernetes.Clientset, namespace string, scrapedResources *store.Instance) error
 }
 
 // Controller type struct
@@ -84,13 +84,13 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 			go func(imageName string, resourceMetaInfos []store.ResourceMetaInfo, errChan chan<- error) {
 				workerTokens <- struct{}{}
 				defer wg.Done()
+				auths := util.GatherAuths(resourceMetaInfos)
 
-				if err := remotes.CreateRemoteIfNotExists(imageName); err != nil {
+				if err := remotes.CreateOrUpdateRemote(imageName, auths); err != nil {
 					errChan <- err
 				} else {
-					auths := util.GatherAuths(resourceMetaInfos)
 
-					remote := remotes.GetRemoteByID(image)
+					remote := remotes.GetRemoteByID(imageName)
 					remoteTags, err := remote.GetTags()
 					if err != nil {
 						errChan <- err

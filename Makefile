@@ -1,8 +1,7 @@
 clustername = differ-cluster
-
+testVersion = 1.0.0
 include .env
 export
-
 all: build cluster_load_image cluster_deploy logs
 
 install_kind:
@@ -10,14 +9,14 @@ install_kind:
 	chmod +x ./kind
 	sudo mv ./kind /usr/local/bin/kind
 
-cluster_bootstrap: cluster_delete
+cluster_bootstrap:
 	kind create cluster --config local-dev/local_cluster.yaml --wait 5m --name $(clustername)
 
 cluster_delete:
 	kind delete cluster --name differ-cluster
 
 build:
-	CGO_ENABLED=0 go build -o differ
+	CGO_ENABLED=0 go build -o differ -ldflags "-X main.version=$(testVersion)"
 	docker build -t differ:dev .
 
 cluster_load_image:

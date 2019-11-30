@@ -34,15 +34,15 @@ type (
 	}
 )
 
-func NewInstance() Instance {
-	return Instance{
-		data: make(map[string][]ResourceMetaInfo, 0),
+func NewInstance() *Instance {
+	return &Instance{
+		data: make(map[string][]ResourceMetaInfo),
 		m:    sync.RWMutex{},
 	}
 }
 
 // AddResource add new resource information to store
-func (storeInstance Instance) AddResource(apiVersion, kind, namespace, name string, containers []v1.Container, secrets map[string][]ImagePullSecret) {
+func (storeInstance *Instance) AddResource(apiVersion, kind, namespace, name string, containers []v1.Container, secrets map[string][]ImagePullSecret) {
 	storeInstance.m.Lock()
 	defer storeInstance.m.Unlock()
 	for _, container := range containers {
@@ -84,7 +84,7 @@ func (storeInstance Instance) AddResource(apiVersion, kind, namespace, name stri
 	}
 }
 
-func (storeInstance Instance) GetDeepCopy() map[string][]ResourceMetaInfo {
+func (storeInstance *Instance) GetDeepCopy() map[string][]ResourceMetaInfo {
 
 	storeInstance.m.RLock()
 	defer storeInstance.m.RUnlock()
@@ -96,7 +96,7 @@ func (storeInstance Instance) GetDeepCopy() map[string][]ResourceMetaInfo {
 }
 
 // Size return current scraped image count
-func (storeInstance Instance) Size() int {
+func (storeInstance *Instance) Size() int {
 	storeInstance.m.RLock()
 	defer storeInstance.m.RUnlock()
 	return len(storeInstance.data)

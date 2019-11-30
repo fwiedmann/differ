@@ -95,7 +95,7 @@ func (c *customCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 // DeleteNotScrapedResources which are not scraped by the last scrape
-func DeleteNotScrapedResources(cache store.Instance) {
+func DeleteNotScrapedResources(cache *store.Instance) {
 	for metricName, metrics := range metricStore {
 		for metricID := range metrics {
 			if metricID == "static metric" {
