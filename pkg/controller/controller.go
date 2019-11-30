@@ -86,7 +86,7 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 				defer wg.Done()
 				auths := util.GatherAuths(resourceMetaInfos)
 
-				if err := remotes.CreateRemoteIfNotExists(imageName, auths); err != nil {
+				if err := remotes.CreateOrUpdateRemote(imageName, auths); err != nil {
 					errChan <- err
 				} else {
 

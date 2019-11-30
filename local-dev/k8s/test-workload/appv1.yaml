@@ -25,7 +25,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: test2
+  name: airgab
   annotations:
     differ/active: "true"
 spec:

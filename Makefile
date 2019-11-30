@@ -10,7 +10,7 @@ install_kind:
 	chmod +x ./kind
 	sudo mv ./kind /usr/local/bin/kind
 
-cluster_bootstrap: cluster_delete
+cluster_bootstrap:
 	kind create cluster --config local-dev/local_cluster.yaml --wait 5m --name $(clustername)
 
 cluster_delete:
