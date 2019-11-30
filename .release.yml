@@ -1,0 +1,15 @@
+commitFormat: angular
+title: "differ release"
+branch:
+  master: release
+changelog:
+  docker:
+    latest: true
+    repository: "wiedmannfelix/differ"
+release: 'github'
+assets:
+  - name: ./differ
+    compress: false
+github:
+  repo: "differ"
+  user: "fwiedmann"
