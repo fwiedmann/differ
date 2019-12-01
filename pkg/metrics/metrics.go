@@ -27,6 +27,7 @@ package metrics
 import (
 	"fmt"
 	"strconv"
+	"sync"
 
 	"github.com/fwiedmann/differ/pkg/opts"
 
@@ -41,6 +42,7 @@ import (
 )
 
 var (
+	m            = sync.Mutex{}
 	gaugeMetrics = map[string]*prometheus.Desc{
 		"differ_config": prometheus.NewDesc(
 			"differ_config",
@@ -96,6 +98,7 @@ func (c *customCollector) Collect(ch chan<- prometheus.Metric) {
 
 // DeleteNotScrapedResources which are not scraped by the last scrape
 func DeleteNotScrapedResources(cache *store.Instance) {
+	m.Lock()
 	for metricName, metrics := range metricStore {
 		for metricID := range metrics {
 			if metricID == "static metric" {
@@ -116,10 +119,12 @@ func DeleteNotScrapedResources(cache *store.Instance) {
 			}
 		}
 	}
+	m.Unlock()
 }
 
 // SetGaugeValueWithID initialize or update metric value
 func SetGaugeValueWithID(metricName, imageName, imageTag string, value float64, labels ...string) {
+	m.Lock()
 	if _, found := gaugeMetrics[metricName]; !found {
 		log.Warnf("Could not find %s metric in metrics pkg", metricName)
 	} else {
@@ -132,6 +137,7 @@ func SetGaugeValueWithID(metricName, imageName, imageTag string, value float64, 
 			metricType: prometheus.GaugeValue,
 		}
 	}
+	m.Unlock()
 }
 
 func SetGaugeValue(metricName string, value float64, labels ...string) {
