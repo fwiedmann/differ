@@ -6,8 +6,8 @@ metadata:
   namespace: default
 rules:
 - apiGroups: ["apps",""]
-  resources: ["deployments", "replicasets", "pods", "secrets"]
-  verbs: ["*"]
+  resources: ["deployments", "statefulsets","daemonsets", "secrets"]
+  verbs: ["get", "watch", "list"]
 ---
 apiVersion: v1
 kind: ServiceAccount

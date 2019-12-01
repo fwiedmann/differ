@@ -2,56 +2,56 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: test1
+  name: test-workload-deployment
   annotations:
     differ/active: "true"
 spec:
   selector:
     matchLabels:
-      app: test1
+      app: test-workload-deployment
   replicas: 1
   template:
     metadata:
       labels:
-        app: test1
+        app: test-workload-deployment
       annotations:
         differ/active: "true"
     spec:
       containers:
-        - name: test1
+        - name: test-workload-deployment
           image: wiedmannfelix/heartbeat:1.2.0
 
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
-  name: airgab
+  name: test-workload-daemonset
   annotations:
     differ/active: "true"
 spec:
   selector:
     matchLabels:
-      app: test2
-  replicas: 1
+      app: test-workload-daemonset
   template:
     metadata:
       labels:
-        app: test2
+        app: test-workload-daemonset
     spec:
       imagePullSecrets:
         - name: demo
       containers:
-        - name: test2
-          image: wiedmannfelix/airgab:latest
+        - name: test-workload-daemonset
+          image: wiedmannfelix/heartbeat:1.2.0
 
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
-  name: grafana
+  name: test-workload-statefulset
   annotations:
     differ/active: "true"
 spec:
+  serviceName: test-workload-statefulset-svc
   selector:
     matchLabels:
       app: grafana
@@ -64,3 +64,16 @@ spec:
       containers:
         - name: dummy
           image: tomcat
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-workload-statefulset-svc
+spec:
+  clusterIP: None
+  selector:
+    app: test-workload-daemonset
+  ports:
+    - port: 8080
+      targetPort: 80

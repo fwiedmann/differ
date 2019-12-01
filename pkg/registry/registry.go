@@ -110,7 +110,7 @@ type Error struct {
 
 // Error to string
 func (e Error) Error() string {
-	return fmt.Sprintf("Remote %s error: %s,", e.remoteURL, e.message)
+	return fmt.Sprintf("Remote %s error: %s", e.remoteURL, e.message)
 }
 
 // NewError helper method to create a registry pkg error

@@ -33,24 +33,23 @@ import (
 )
 
 // Deployment type struct
-type Deployment struct {
+type StateFulSet struct {
 }
 
-// todo: implement watch method with chanels
 // GetWorkloadResources scrapes all appsV1 deployments
-func (d Deployment) GetWorkloadResources(c *kubernetes.Clientset, namespace string, resourceStore *store.Instance) error {
-	deployments, err := c.AppsV1().Deployments(namespace).List(v1.ListOptions{})
+func (d StateFulSet) GetWorkloadResources(c *kubernetes.Clientset, namespace string, resourceStore *store.Instance) error {
+	stateFulSets, err := c.AppsV1().DaemonSets(namespace).List(v1.ListOptions{})
 	if err != nil {
 		return err
 	}
 
-	for _, deployment := range deployments.Items {
-		if _, ok := deployment.Annotations[opts.DifferAnnotation]; ok {
-			authSecrets, err := util.GetRegistryAuth(deployment.Spec.Template.Spec.ImagePullSecrets, c, namespace)
+	for _, stateFulSet := range stateFulSets.Items {
+		if _, ok := stateFulSet.Annotations[opts.DifferAnnotation]; ok {
+			authSecrets, err := util.GetRegistryAuth(stateFulSet.Spec.Template.Spec.ImagePullSecrets, c, namespace)
 			if err != nil {
 				return err
 			}
-			resourceStore.AddResource("appsV1", "Deployment", deployment.Namespace, deployment.Name, deployment.Spec.Template.Spec.Containers, authSecrets)
+			resourceStore.AddResource("appsV1", "StatefulSet", stateFulSet.Namespace, stateFulSet.Name, stateFulSet.Spec.Template.Spec.Containers, authSecrets)
 		}
 	}
 	return nil
