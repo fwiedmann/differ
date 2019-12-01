@@ -74,7 +74,7 @@ var configFile string
 func init() {
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "./config.yaml", "Path to differ config file")
 	rootCmd.Flags().String("loglevel", "info", "Set loglevel. Default is info")
-	scrapers = append(scrapers, appv1scraper.Deployment{})
+	scrapers = append(scrapers, appv1scraper.Deployment{}, appv1scraper.DaemonSet{}, appv1scraper.StateFulSet{})
 }
 
 // Execute executes the rootCmd
