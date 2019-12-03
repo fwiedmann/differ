@@ -41,7 +41,7 @@ spec:
         - name: demo
       containers:
         - name: test-workload-daemonset
-          image: wiedmannfelix/heartbeat:1.2.0
+          image: wiedmannfelix/heartbeat:latest
 
 ---
 apiVersion: apps/v1

@@ -69,6 +69,7 @@ type metric struct {
 	labels     []string
 	value      float64
 	metricType prometheus.ValueType
+	isStatic   bool
 }
 
 // metricStore holds all current metrics.
@@ -100,8 +101,8 @@ func (c *customCollector) Collect(ch chan<- prometheus.Metric) {
 func DeleteNotScrapedResources(cache *store.Instance) {
 	m.Lock()
 	for metricName, metrics := range metricStore {
-		for metricID := range metrics {
-			if metricID == "static metric" {
+		for metricID, metric := range metrics {
+			if metric.isStatic {
 				continue
 			} else {
 				var found bool
@@ -122,8 +123,7 @@ func DeleteNotScrapedResources(cache *store.Instance) {
 	m.Unlock()
 }
 
-// SetGaugeValueWithID initialize or update metric value
-func SetGaugeValueWithID(metricName, imageName, imageTag string, value float64, labels ...string) {
+func setGaugeValue(static bool, metricName string, value float64, labels ...string) {
 	m.Lock()
 	if _, found := gaugeMetrics[metricName]; !found {
 		log.Warnf("Could not find %s metric in metrics pkg", metricName)
@@ -131,17 +131,31 @@ func SetGaugeValueWithID(metricName, imageName, imageTag string, value float64, 
 		if _, found := metricStore[metricName]; !found {
 			metricStore[metricName] = make(map[string]metric)
 		}
-		metricStore[metricName][imageName+" "+imageTag] = metric{
+
+		var id string
+
+		for _, l := range labels {
+			id += l
+		}
+		metricStore[metricName][id] = metric{
 			labels:     labels,
 			value:      value,
 			metricType: prometheus.GaugeValue,
+			isStatic:   static,
 		}
 	}
 	m.Unlock()
 }
 
+// SetGaugeValue initialize or update metric value
 func SetGaugeValue(metricName string, value float64, labels ...string) {
-	SetGaugeValueWithID(metricName, "static", "metric", value, labels...)
+	setGaugeValue(false, metricName, value, labels...)
+
+}
+
+// SetStaticGaugeValue initialize or update a static metric
+func SetStaticGaugeValue(metricName string, value float64, labels ...string) {
+	setGaugeValue(true, metricName, value, labels...)
 }
 
 var promRegistry = prometheus.NewRegistry()
