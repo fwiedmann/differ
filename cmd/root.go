@@ -52,7 +52,7 @@ var rootCmd = cobra.Command{
 		if err != nil {
 			return err
 		}
-		metrics.SetGaugeValue("differ_config", 1, cmd.Version, o.Namespace, o.Sleep, strconv.Itoa(o.Metrics.Port), o.Metrics.Path)
+		metrics.SetStaticGaugeValue("differ_config", 1, cmd.Version, o.Namespace, o.Sleep, strconv.Itoa(o.Metrics.Port), o.Metrics.Path)
 
 		c := controller.New(o)
 

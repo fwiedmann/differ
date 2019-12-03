@@ -38,7 +38,7 @@ type StateFulSet struct {
 
 // GetWorkloadResources scrapes all appsV1 deployments
 func (d StateFulSet) GetWorkloadResources(c *kubernetes.Clientset, namespace string, resourceStore *store.Instance) error {
-	stateFulSets, err := c.AppsV1().DaemonSets(namespace).List(v1.ListOptions{})
+	stateFulSets, err := c.AppsV1().StatefulSets(namespace).List(v1.ListOptions{})
 	if err != nil {
 		return err
 	}

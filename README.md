@@ -1,6 +1,6 @@
 <p align="center">
-  <a href="https://example.com/">
-    <img src="images/differ_logo.png" width=72 height=72>
+  <a href="https://github.com/fwiedmann/differ">
+    <img src="images/differ_logo.png" width=100 height=100>
   </a>
 
   <h3 align="center">Differ</h3>
@@ -21,3 +21,14 @@
   ![badge](https://action-badges.now.sh/fwiedmann/differ)
 
 # WIP
+
+## RED metics
+
+Rate
+
+Errors
+which images could not be scraped
+images with now matched pattern
+
+Duration
+How long does a run needed
