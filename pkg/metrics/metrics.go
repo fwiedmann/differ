@@ -62,6 +62,12 @@ var (
 			[]string{"image_name", "image_tag", "resource_type", "resource_name", "resource_api_version", "namespace", "newer_image_tag"},
 			nil,
 		),
+		"differ_unknown_image_tag": prometheus.NewDesc(
+			"differ_unknown_image_tag",
+			"Image tag which could not be identified to a known tag",
+			[]string{"image_name", "image_tag", "resource_type", "resource_name", "resource_api_version", "namespace"},
+			nil,
+		),
 	}
 )
 

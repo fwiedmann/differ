@@ -99,6 +99,8 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 							metrics.SetGaugeValue("differ_scraped_image", 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace)
 							valid, pattern := util.IsValidTag(info.ImageTag)
 							if !valid {
+								log.Debugf("Tag %s from image %s does not match any valid pattern", info.ImageTag, info.ImageName)
+								metrics.SetGaugeValue("differ_unknown_image_tag", 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace)
 								continue
 							}
 							sortedTags := util.SortTagsByPattern(remoteTags, pattern)
