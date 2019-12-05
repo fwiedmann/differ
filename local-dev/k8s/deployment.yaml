@@ -20,7 +20,7 @@ spec:
       serviceAccountName: differ
       containers:
       - name: differ
-        image: differ:dev
+        image: wiedmannfelix/differ
         args: ["--loglevel","trace"]
         ports:
         - containerPort: 8080
