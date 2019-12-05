@@ -26,6 +26,7 @@ package controller
 
 import (
 	"sync"
+	"time"
 
 	"github.com/fwiedmann/differ/pkg/controller/util"
 	"github.com/fwiedmann/differ/pkg/metrics"
@@ -58,6 +59,7 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 	remotes := registry.NewRemoteStore()
 
 	for {
+		timeBefore := time.Now()
 		resourceStore := store.NewInstance()
 
 		kubernetesClient, err := util.InitKubernetesClient()
@@ -70,7 +72,10 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 				return err
 			}
 		}
+		metrics.DifferControllerRuns.Inc()
+		metrics.DifferScrapedImages.Set(float64(resourceStore.Size()))
 		metrics.DeleteNotScrapedResources(resourceStore)
+
 		log.Tracef("Scraped resources: %v", resourceStore)
 
 		// limit concurrent execution to 300 with tokens
@@ -96,16 +101,16 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 						errChan <- err
 					} else {
 						for _, info := range resourceMetaInfos {
-							metrics.SetGaugeValue("differ_scraped_image", 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace)
+							metrics.DynamicMetricSetGaugeValue("differ_scraped_image", 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace)
 							valid, pattern := util.IsValidTag(info.ImageTag)
 							if !valid {
 								log.Debugf("Tag %s from image %s does not match any valid pattern", info.ImageTag, info.ImageName)
-								metrics.SetGaugeValue("differ_unknown_image_tag", 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace)
+								metrics.DynamicMetricSetGaugeValue("differ_unknown_image_tag", 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace)
 								continue
 							}
 							sortedTags := util.SortTagsByPattern(remoteTags, pattern)
 							if sortedTags[len(sortedTags)-1] != info.ImageTag {
-								metrics.SetGaugeValue("differ_update_image", 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace, sortedTags[len(sortedTags)-1])
+								metrics.DynamicMetricSetGaugeValue("differ_update_image", 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace, sortedTags[len(sortedTags)-1])
 							}
 						}
 						errChan <- nil
@@ -128,6 +133,9 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 				return err
 			}
 		}
+
+		timeAfter := time.Now()
+		metrics.DifferControllerDuration.Set(float64(timeAfter.Sub(timeBefore).Milliseconds()))
 
 		controller.config.ControllerSleep()
 	}

@@ -33,6 +33,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fwiedmann/differ/pkg/metrics"
+
 	"github.com/fwiedmann/differ/pkg/store"
 
 	httpClient "github.com/fwiedmann/differ/pkg/http"
@@ -90,7 +92,7 @@ func (r *Remotes) CreateOrUpdateRemote(image string, gatheredAuths []store.Image
 	if err != nil {
 		return err
 	}
-
+	metrics.DifferRegistryTagError.WithLabelValues(image).Set(0)
 	r.data[image] = remote
 	return nil
 }
@@ -305,6 +307,7 @@ func (r *Remote) GetTags() ([]string, error) {
 		r.RemoteLogger.Tracef("Latest tags %v", list.Tags)
 		return list.Tags, nil
 	}
+	metrics.DifferRegistryTagError.WithLabelValues(r.Image).Set(1)
 	return []string{}, NewError(r.URL.String(), "Could not get tags")
 
 }
