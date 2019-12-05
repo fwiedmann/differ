@@ -27,29 +27,48 @@ package metrics
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/fwiedmann/differ/pkg/opts"
 
 	"github.com/fwiedmann/differ/pkg/store"
 
-	log "github.com/sirupsen/logrus"
-
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/common/log"
 )
 
 var (
 	m            = sync.Mutex{}
-	gaugeMetrics = map[string]*prometheus.Desc{
-		"differ_config": prometheus.NewDesc(
-			"differ_config",
-			"Shows the configuration of differ",
-			[]string{"version", "namespace", "sleep_duration", "metrics_port", "metrics_path"},
-			nil,
-		),
+	DifferConfig = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "differ_config",
+		Help: "Shows the configuration of differ",
+	}, []string{"version", "namespace", "sleep_duration", "metrics_port", "metrics_path"})
+
+	DifferRegistryTagError = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "differ_registry_error_tags",
+		Help: "Could not fetch tags from remote",
+	}, []string{"image"})
+
+	DifferControllerRuns = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "differ_controller_runs",
+		Help: "Counter of controller runs",
+	})
+
+	DifferControllerDuration = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "differ_controller_last_execution_duration",
+		Help: "Duration in milliseconds of the latest controller loop run",
+	})
+
+	DifferScrapedImages = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "differ_scraped_images",
+		Help: "All current scraped images",
+	})
+
+	dynamicImageGaugeMetrics = map[string]*prometheus.Desc{
 		"differ_scraped_image": prometheus.NewDesc(
 			"differ_scraped_image",
 			"Scraped image with meta information",
@@ -75,28 +94,31 @@ type metric struct {
 	labels     []string
 	value      float64
 	metricType prometheus.ValueType
-	isStatic   bool
 }
 
 // metricStore holds all current metrics.
 // metricName - labels as ID - metric struct
 var metricStore = make(map[string]map[string]metric)
 
-// customCollector satisfy the prometheus collector interface
-type customCollector struct {
+// dynamicCollector satisfy the prometheus collector interface
+type dynamicCollector struct {
+}
+
+func newDynamicCollector() *dynamicCollector {
+	return &dynamicCollector{}
 }
 
 // Describe implementation of prometheus Collector
-func (c *customCollector) Describe(ch chan<- *prometheus.Desc) {
-	for _, description := range gaugeMetrics {
+func (c *dynamicCollector) Describe(ch chan<- *prometheus.Desc) {
+	for _, description := range dynamicImageGaugeMetrics {
 		ch <- description
 	}
 }
 
 // Collect implementation of prometheus Collector
-func (c *customCollector) Collect(ch chan<- prometheus.Metric) {
+func (c *dynamicCollector) Collect(ch chan<- prometheus.Metric) {
 	for metricName, metrics := range metricStore {
-		description := gaugeMetrics[metricName]
+		description := dynamicImageGaugeMetrics[metricName]
 		for _, metricValue := range metrics {
 			ch <- prometheus.MustNewConstMetric(description, metricValue.metricType, metricValue.value, metricValue.labels...)
 		}
@@ -107,31 +129,30 @@ func (c *customCollector) Collect(ch chan<- prometheus.Metric) {
 func DeleteNotScrapedResources(cache *store.Instance) {
 	m.Lock()
 	for metricName, metrics := range metricStore {
-		for metricID, metric := range metrics {
-			if metric.isStatic {
-				continue
-			} else {
-				var found bool
-				for _, imageName := range cache.GetDeepCopy() {
-					for _, scrapedImage := range imageName {
-						tmpMetricID := fmt.Sprintf("%s %s", scrapedImage.ImageName, scrapedImage.ImageTag)
-						if metricID == tmpMetricID {
-							found = true
-						}
+		for metricID := range metrics {
+			var found bool
+			for _, imageName := range cache.GetDeepCopy() {
+				for _, scrapedImage := range imageName {
+					tmpMetricID := fmt.Sprintf("%s%s%s%s%s%s", scrapedImage.ImageName, scrapedImage.ImageTag, scrapedImage.ResourceType, scrapedImage.WorkloadName, scrapedImage.APIVersion, scrapedImage.Namespace)
+
+					if strings.HasPrefix(metricID, tmpMetricID) {
+						log.Infof("GOT METRIC ID %s, tmep %s", metricID, tmpMetricID)
+						found = true
 					}
 				}
-				if !found {
-					delete(metricStore[metricName], metricID)
-				}
+			}
+			if !found {
+				delete(metricStore[metricName], metricID)
 			}
 		}
 	}
 	m.Unlock()
 }
 
-func setGaugeValue(static bool, metricName string, value float64, labels ...string) {
+// DynamicMetricSetGaugeValue initialize or update metric value
+func DynamicMetricSetGaugeValue(metricName string, value float64, labels ...string) {
 	m.Lock()
-	if _, found := gaugeMetrics[metricName]; !found {
+	if _, found := dynamicImageGaugeMetrics[metricName]; !found {
 		log.Warnf("Could not find %s metric in metrics pkg", metricName)
 	} else {
 		if _, found := metricStore[metricName]; !found {
@@ -147,27 +168,15 @@ func setGaugeValue(static bool, metricName string, value float64, labels ...stri
 			labels:     labels,
 			value:      value,
 			metricType: prometheus.GaugeValue,
-			isStatic:   static,
 		}
 	}
 	m.Unlock()
 }
 
-// SetGaugeValue initialize or update metric value
-func SetGaugeValue(metricName string, value float64, labels ...string) {
-	setGaugeValue(false, metricName, value, labels...)
-
-}
-
-// SetStaticGaugeValue initialize or update a static metric
-func SetStaticGaugeValue(metricName string, value float64, labels ...string) {
-	setGaugeValue(true, metricName, value, labels...)
-}
-
 var promRegistry = prometheus.NewRegistry()
 
 func init() {
-	promRegistry.MustRegister(&customCollector{})
+	promRegistry.MustRegister(newDynamicCollector(), DifferConfig, DifferRegistryTagError, DifferControllerRuns, DifferControllerDuration, DifferScrapedImages, prometheus.NewGoCollector(), prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 }
 
 // StartMetricsEndpoint starts metrics endpoint
