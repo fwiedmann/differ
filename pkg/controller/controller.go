@@ -28,12 +28,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fwiedmann/differ/pkg/controller/util"
-	"github.com/fwiedmann/differ/pkg/metrics"
-	"github.com/fwiedmann/differ/pkg/opts"
-	"github.com/fwiedmann/differ/pkg/registry"
-	"github.com/fwiedmann/differ/pkg/store"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/fwiedmann/differ/pkg/kubernetesscraper"
+
+	"github.com/fwiedmann/differ/pkg/config"
+	"github.com/fwiedmann/differ/pkg/store"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -42,23 +42,46 @@ type ResourceScraper interface {
 	GetWorkloadResources(c *kubernetes.Clientset, namespace string, scrapedResources *store.Instance) error
 }
 
-// Controller type struct
+// Controller types struct
 type Controller struct {
-	config *opts.ControllerConfig
+	config                  *config.Config
+	configMutex             sync.RWMutex
+	kubernetesResourceStore store.Instance
 }
 
-// New initialize the differ controller
-func New(c *opts.ControllerConfig) *Controller {
+// ApplyConfig for dynamic reload of the configuration
+func (c *Controller) ApplyConfig(newConfig *config.Config) {
+	c.configMutex.Lock()
+	defer c.configMutex.Unlock()
+	c.config = newConfig
+}
+
+// NewController initialize the differ controller
+func NewController(c *config.Config) *Controller {
 	return &Controller{
-		config: c,
+		config:                  c,
+		configMutex:             sync.RWMutex{},
+		kubernetesResourceStore: store.Instance{},
 	}
 }
 
 // Run starts differ controller loop
 func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
-	remotes := registry.NewRemoteStore()
+	controllerConfig := controller.config.GetConfig()
+	o, err := kubernetesscraper.InitKubernetesAPIObserversWithKubernetesClient(controllerConfig.Namespace)
+	if err != nil {
+		return err
+	}
+	o.ObserveAPIs()
+	go func() {
+		for {
+			log.Info("%v", <-o.ObserverChannel)
+		}
+	}()
+	/*remotes := registry.NewRemoteStore()
 
 	for {
+		conf := controller.controllerConfig.GetConfig()
 		timeBefore := time.Now()
 		resourceStore := store.NewInstance()
 
@@ -68,10 +91,11 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 		}
 
 		for _, s := range resourceScrapers {
-			if err := s.GetWorkloadResources(kubernetesClient, controller.config.Namespace, resourceStore); err != nil {
+			if err := s.GetWorkloadResources(kubernetesClient, conf.Namespace, resourceStore); err != nil {
 				return err
 			}
 		}
+		metrics.DifferConfig.WithLabelValues(conf.Version, conf.Namespace, conf.Sleep, strconv.Itoa(conf.Metrics.Port), conf.Metrics.Path)
 		metrics.DifferControllerRuns.Inc()
 		metrics.DifferScrapedImages.Set(float64(resourceStore.Size()))
 		metrics.DeleteNotScrapedResources(resourceStore)
@@ -86,7 +110,7 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 		// start worker for each image
 		for image, imageInfos := range resourceStore.GetDeepCopy() {
 			wg.Add(1)
-			go func(imageName string, resourceMetaInfos []store.ResourceMetaInfo, errChan chan<- error) {
+			go func(imageName string, resourceMetaInfos []store.KubernetesAPIResource, errChan chan<- error) {
 				workerTokens <- struct{}{}
 				defer wg.Done()
 				auths := util.GatherAuths(resourceMetaInfos)
@@ -137,6 +161,10 @@ func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
 		timeAfter := time.Now()
 		metrics.DifferControllerDuration.Set(float64(timeAfter.Sub(timeBefore).Milliseconds()))
 
-		controller.config.ControllerSleep()
-	}
+		controller.controllerConfig.ControllerSleep()
+	}*/
+
+	t, _ := time.ParseDuration("5h")
+	time.Sleep(t)
+	return nil
 }

@@ -30,7 +30,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/fwiedmann/differ/pkg/opts"
+	"github.com/fwiedmann/differ/pkg/config"
 
 	"github.com/fwiedmann/differ/pkg/store"
 
@@ -136,7 +136,6 @@ func DeleteNotScrapedResources(cache *store.Instance) {
 					tmpMetricID := fmt.Sprintf("%s%s%s%s%s%s", scrapedImage.ImageName, scrapedImage.ImageTag, scrapedImage.ResourceType, scrapedImage.WorkloadName, scrapedImage.APIVersion, scrapedImage.Namespace)
 
 					if strings.HasPrefix(metricID, tmpMetricID) {
-						log.Infof("GOT METRIC ID %s, tmep %s", metricID, tmpMetricID)
 						found = true
 					}
 				}
@@ -180,7 +179,7 @@ func init() {
 }
 
 // StartMetricsEndpoint starts metrics endpoint
-func StartMetricsEndpoint(o opts.MetricsEndpoint) error {
+func StartMetricsEndpoint(o config.MetricsEndpoint) error {
 
 	server := http.NewServeMux()
 	server.Handle(o.Path, promhttp.HandlerFor(promRegistry, promhttp.HandlerOpts{}))

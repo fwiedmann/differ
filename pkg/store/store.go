@@ -11,10 +11,10 @@ import (
 // todo: delete not given resources, to put instance at top level of controller.Run()
 
 type (
-	// Cache stores all scraped images with ResourceMetaInfo in the way of:
-	// ["image"][]ResourceMetaInfo{}
+	// Cache stores all scraped images with KubernetesAPIResource in the way of:
+	// ["image"][]KubernetesAPIResource{}
 	Instance struct {
-		data map[string][]ResourceMetaInfo
+		data map[string][]KubernetesAPIResource
 		m    sync.RWMutex
 	}
 
@@ -22,8 +22,8 @@ type (
 		Username string
 		Password string
 	}
-	// ResourceMetaInfo contains unique meta information from scraped resource types
-	ResourceMetaInfo struct {
+	// KubernetesAPIResource contains unique meta information from scraped resource types
+	KubernetesAPIResource struct {
 		APIVersion   string
 		ResourceType string
 		Namespace    string
@@ -36,7 +36,7 @@ type (
 
 func NewInstance() *Instance {
 	return &Instance{
-		data: make(map[string][]ResourceMetaInfo),
+		data: make(map[string][]KubernetesAPIResource),
 		m:    sync.RWMutex{},
 	}
 }
@@ -50,7 +50,7 @@ func (storeInstance *Instance) AddResource(apiVersion, kind, namespace, name str
 		image, tag := getResourceStoreKeys(container.Image)
 
 		if _, found := storeInstance.data[image]; !found {
-			storeInstance.data[image] = make([]ResourceMetaInfo, 0)
+			storeInstance.data[image] = make([]KubernetesAPIResource, 0)
 		}
 
 		var matchingSecrets []ImagePullSecret
@@ -60,7 +60,7 @@ func (storeInstance *Instance) AddResource(apiVersion, kind, namespace, name str
 				matchingSecrets = append(matchingSecrets, regsistrySecrets...)
 			}
 		}
-		resourceInfo := ResourceMetaInfo{
+		resourceInfo := KubernetesAPIResource{
 			APIVersion:   apiVersion,
 			ResourceType: kind,
 			Namespace:    namespace,
@@ -84,11 +84,11 @@ func (storeInstance *Instance) AddResource(apiVersion, kind, namespace, name str
 	}
 }
 
-func (storeInstance *Instance) GetDeepCopy() map[string][]ResourceMetaInfo {
+func (storeInstance *Instance) GetDeepCopy() map[string][]KubernetesAPIResource {
 
 	storeInstance.m.RLock()
 	defer storeInstance.m.RUnlock()
-	deepCopy := make(map[string][]ResourceMetaInfo)
+	deepCopy := make(map[string][]KubernetesAPIResource)
 	for key, value := range storeInstance.data {
 		deepCopy[key] = value
 	}

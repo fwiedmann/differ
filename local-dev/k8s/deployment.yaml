@@ -20,8 +20,8 @@ spec:
       serviceAccountName: differ
       containers:
       - name: differ
-        image: wiedmannfelix/differ
-        args: ["--loglevel","trace"]
+        image: differ:dev
+        args: ["--loglevel","info"]
         ports:
         - containerPort: 8080
           name: metrics
@@ -64,6 +64,7 @@ data:
   config.yaml: |
     namespace: "default"
     controllerSleep: "10s"
+    loglevel: "trace"
     metrics:
       port: 8080
       path: "/metrics"

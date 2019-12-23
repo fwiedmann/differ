@@ -104,7 +104,7 @@ func (r *Remotes) GetRemoteByID(image string) *Remote {
 	return r.data[image]
 }
 
-// Error type for registry package
+// Error types for registry package
 type Error struct {
 	remoteURL string
 	message   string

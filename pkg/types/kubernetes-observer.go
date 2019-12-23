@@ -22,36 +22,20 @@
  * SOFTWARE.
  */
 
-package appv1scraper
+package types
 
 import (
-	"github.com/fwiedmann/differ/pkg/kubernetes-scraper/util"
-	"github.com/fwiedmann/differ/pkg/opts"
 	"github.com/fwiedmann/differ/pkg/store"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
-// Deployment type struct
-type Deployment struct {
+type KubernetesObserverConfig struct {
+	ObserverChannel     chan ObservedImageEvent
+	NamespaceToScrape   string
+	KubernetesAPIClient *kubernetes.Clientset
 }
 
-// todo: implement watch method with chanels
-// GetWorkloadResources scrapes all appsV1 deployments
-func (d Deployment) GetWorkloadResources(c *kubernetes.Clientset, namespace string, resourceStore *store.Instance) error {
-	deployments, err := c.AppsV1().Deployments(namespace).List(v1.ListOptions{})
-	if err != nil {
-		return err
-	}
-
-	for _, deployment := range deployments.Items {
-		if _, ok := deployment.Annotations[opts.DifferAnnotation]; ok {
-			authSecrets, err := util.GetRegistryAuth(deployment.Spec.Template.Spec.ImagePullSecrets, c, namespace)
-			if err != nil {
-				return err
-			}
-			resourceStore.AddResource("appsV1", "Deployment", deployment.Namespace, deployment.Name, deployment.Spec.Template.Spec.Containers, authSecrets)
-		}
-	}
-	return nil
+type ObservedImageEvent struct {
+	EventType                   string
+	ImageWithKubernetesMetadata store.KubernetesAPIResource
 }

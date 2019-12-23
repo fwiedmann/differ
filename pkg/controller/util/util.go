@@ -33,8 +33,6 @@ import (
 
 	"github.com/fwiedmann/differ/pkg/registry"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 // todo: add further image tag patterns
@@ -66,19 +64,6 @@ func SortTagsByPattern(tags []string, pattern string) []string {
 	return validTags
 }
 
-func InitKubernetesClient() (*kubernetes.Clientset, error) {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return &kubernetes.Clientset{}, err
-	}
-
-	if clientset, err := kubernetes.NewForConfig(config); err != nil {
-		return &kubernetes.Clientset{}, err
-	} else {
-		return clientset, nil
-	}
-}
-
 func IsRegistryError(err error) error {
 	if err, ok := err.(registry.Error); ok {
 		log.Warn(err)
@@ -87,7 +72,7 @@ func IsRegistryError(err error) error {
 	return err
 }
 
-func GatherAuths(resourceInfos []store.ResourceMetaInfo) []store.ImagePullSecret {
+func GatherAuths(resourceInfos []store.KubernetesAPIResource) []store.ImagePullSecret {
 	auths := make([]store.ImagePullSecret, 0)
 
 	for _, resourceInfo := range resourceInfos {

@@ -22,13 +22,15 @@
  * SOFTWARE.
  */
 
-package opts
+package config
 
 import (
 	"fmt"
 	"io/ioutil"
+	"sync"
 	"time"
 
+	nested "github.com/antonfisher/nested-logrus-formatter"
 	log "github.com/sirupsen/logrus"
 
 	"gopkg.in/yaml.v2"
@@ -58,12 +60,55 @@ type ControllerConfig struct {
 	GitRemotes  []GitRemote     `yaml:"remotes"`
 	Sleep       string          `yaml:"controllerSleep"`
 	Metrics     MetricsEndpoint `yaml:"metrics"`
+	LogLevel    string          `yaml:"loglevel"`
 	configPath  string          `ymaml:"-"`
 	ParsedSleep time.Duration   `ymaml:"-"`
+	Version     string          `yaml:"-"`
+}
+
+type Config struct {
+	config     *ControllerConfig
+	configLock sync.RWMutex
+	reload     bool
+	configFile string
+}
+
+func NewConfig(configPath, differVersion string) (*Config, error) {
+	config, err := initConfig(configPath)
+	if err != nil {
+		return nil, err
+	}
+	config.Version = differVersion
+	return &Config{
+		config:     config,
+		configLock: sync.RWMutex{},
+		configFile: configPath,
+	}, nil
+}
+
+func (o *Config) GetConfig() *ControllerConfig {
+	o.configLock.Lock()
+	defer o.configLock.Unlock()
+
+	return o.config
+}
+
+func (o *Config) ReloadConfig() error {
+	o.configLock.Lock()
+	defer o.configLock.Unlock()
+	log.Infof("Reloading config")
+	conf, err := initConfig(o.configFile)
+	if err != nil {
+		return err
+	}
+	o.config = conf
+
+	o.reload = true
+	return nil
 }
 
 // Init initialize controller configuration
-func Init(configPath string) (*ControllerConfig, error) {
+func initConfig(configPath string) (*ControllerConfig, error) {
 
 	config := &ControllerConfig{configPath: configPath,
 		Metrics: MetricsEndpoint{
@@ -80,11 +125,14 @@ func Init(configPath string) (*ControllerConfig, error) {
 	if err = yaml.Unmarshal(configFile, config); err != nil {
 		return nil, err
 	}
-	log.Debugf("Parsed config: %+v", config)
 
 	if err = validateConfig(config); err != nil {
 		return nil, err
 	}
+	if err = setLoglevel(config.LogLevel); err != nil {
+		return nil, err
+	}
+	log.Debugf("Parsed config: %+v", config)
 
 	return config, nil
 
@@ -99,6 +147,9 @@ func validateConfig(c *ControllerConfig) error {
 	}
 	c.ParsedSleep = duration
 
+	if c.LogLevel == "" {
+		c.LogLevel = "info"
+	}
 	if c.Metrics.Path == "" {
 		log.Errorf("Metrics Path can't be empty, please choose smth. like \"/metrics\" or \"/metrics\"")
 		isValid = false
@@ -113,8 +164,24 @@ func validateConfig(c *ControllerConfig) error {
 	return nil
 }
 
+func setLoglevel(level string) error {
+	parsedLevel, err := log.ParseLevel(level)
+	if err != nil {
+		return err
+	}
+
+	log.SetLevel(parsedLevel)
+	log.SetFormatter(&log.TextFormatter{ForceColors: true})
+	log.SetFormatter(&nested.Formatter{
+		HideKeys: true,
+	})
+	return nil
+}
+
 // ControllerSleep sleep for configured duration
-func (c *ControllerConfig) ControllerSleep() {
-	log.Infof("Done, start sleeping for %s", c.Sleep)
-	time.Sleep(c.ParsedSleep)
+func (c *Config) ControllerSleep() {
+	log.Infof("Done, start sleeping for %s", c.config.Sleep)
+	time.Sleep(c.config.ParsedSleep)
+	// Todo: use select and time.After and empty chanel when update is required
+
 }

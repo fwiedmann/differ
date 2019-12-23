@@ -25,14 +25,9 @@
 package cmd
 
 import (
-	"strconv"
-
-	nested "github.com/antonfisher/nested-logrus-formatter"
+	"github.com/fwiedmann/differ/pkg/config"
 	"github.com/fwiedmann/differ/pkg/controller"
-	"github.com/fwiedmann/differ/pkg/kubernetes-scraper/appv1scraper"
 	"github.com/fwiedmann/differ/pkg/metrics"
-	"github.com/fwiedmann/differ/pkg/opts"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -40,24 +35,18 @@ var rootCmd = cobra.Command{
 	Use:          "differ",
 	Short:        "",
 	SilenceUsage: true,
-	PreRunE: func(cmd *cobra.Command, args []string) error {
-		lvl, err := cmd.Flags().GetString("loglevel")
-		if err != nil {
-			return err
-		}
-		return setLoglevel(lvl)
-	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		o, err := opts.Init(configFile)
+		o, err := config.NewConfig(configFile, cmd.Version)
 		if err != nil {
 			return err
 		}
-		metrics.DifferConfig.WithLabelValues(cmd.Version, o.Namespace, o.Sleep, strconv.Itoa(o.Metrics.Port), o.Metrics.Path)
 
-		c := controller.New(o)
+		conf := o.GetConfig()
+
+		c := controller.NewController(o)
 
 		go func() {
-			if err := metrics.StartMetricsEndpoint(o.Metrics); err != nil {
+			if err := metrics.StartMetricsEndpoint(conf.Metrics); err != nil {
 				panic(err)
 			}
 		}()
@@ -74,25 +63,10 @@ var configFile string
 func init() {
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "./config.yaml", "Path to differ config file")
 	rootCmd.Flags().String("loglevel", "info", "Set loglevel. Default is info")
-	scrapers = append(scrapers, appv1scraper.Deployment{}, appv1scraper.DaemonSet{}, appv1scraper.StateFulSet{})
 }
 
 // Execute executes the rootCmd
 func Execute(version string) error {
 	rootCmd.Version = version
 	return rootCmd.Execute()
-}
-
-func setLoglevel(level string) error {
-	parsedLevel, err := log.ParseLevel(level)
-	if err != nil {
-		return err
-	}
-
-	log.SetLevel(parsedLevel)
-	log.SetFormatter(&log.TextFormatter{ForceColors: true})
-	log.SetFormatter(&nested.Formatter{
-		HideKeys: true,
-	})
-	return nil
 }
