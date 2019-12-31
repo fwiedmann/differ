@@ -27,13 +27,11 @@ package util
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
+	"github.com/fwiedmann/differ/pkg/image"
 	"k8s.io/apimachinery/pkg/watch"
 
 	"github.com/fwiedmann/differ/pkg/types"
-
-	"github.com/fwiedmann/differ/pkg/store"
 
 	log "github.com/sirupsen/logrus"
 
@@ -42,17 +40,13 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-type ImageWithAssociatedPullSecrets struct {
-	ImageName        string
-	ImageTag         string
-	ImagePullSecrets []store.ImagePullSecret
-}
+func getImagePullSecrets(ImagePullSecretNames []string, observerConfig *types.KubernetesObserverConfig) (map[string][]image.PullSecret, error) {
+	marshaledAuths := make(map[string][]image.PullSecret)
 
-func getRegistryAuth(ImagePullSecretNames []string, obseverCondfig *types.KubernetesObserverConfig) (map[string][]store.ImagePullSecret, error) {
-	marshaledAuths := make(map[string][]store.ImagePullSecret)
+	apiClient, namespace := observerConfig.KubernetesAPI.GetAPIClientAndNameSpace()
 
 	for _, secretName := range ImagePullSecretNames {
-		secret, err := obseverCondfig.KubernetesAPIClient.CoreV1().Secrets(obseverCondfig.NamespaceToScrape).Get(secretName, metaV1.GetOptions{
+		secret, err := apiClient.CoreV1().Secrets(namespace).Get(secretName, metaV1.GetOptions{
 			TypeMeta: metaV1.TypeMeta{
 				Kind: "kubernetes.io/dockerconfigjson",
 			},
@@ -71,7 +65,7 @@ func getRegistryAuth(ImagePullSecretNames []string, obseverCondfig *types.Kubern
 		}
 
 		for registry, auths := range jsonContent["auths"].(map[string]interface{}) {
-			auth := store.ImagePullSecret{}
+			auth := image.PullSecret{}
 			for jsonAuthKey, jsonAuthValue := range auths.(map[string]interface{}) {
 
 				switch jsonAuthKey {
@@ -87,69 +81,55 @@ func getRegistryAuth(ImagePullSecretNames []string, obseverCondfig *types.Kubern
 	return marshaledAuths, nil
 }
 
-func GetImagesAndImagePullSecrets(pod v1.PodTemplateSpec, observerConfig *types.KubernetesObserverConfig) ([]ImageWithAssociatedPullSecrets, error) {
+func GetImagesWithImagePullSecrets(pod v1.PodTemplateSpec, observerConfig *types.KubernetesObserverConfig) ([]*image.WithAssociatedPullSecrets, error) {
 
-	images := getImagesFromPodSpec(pod.Spec)
+	imagesFromPodSpec := getImagesFromPodSpec(pod.Spec)
 	imagePullSecretNames := getImagePullSecretNamesFromPodSpec(pod.Spec)
 
-	imagePullSecrets, err := getRegistryAuth(imagePullSecretNames, observerConfig)
+	imagePullSecrets, err := getImagePullSecrets(imagePullSecretNames, observerConfig)
 	if err != nil {
-		return []ImageWithAssociatedPullSecrets{}, nil
+		return []*image.WithAssociatedPullSecrets{}, nil
 	}
-	return generateImageAssociatedAndPullSecretsCombinations(images, imagePullSecrets), nil
 
+	appendPullSecretsToImages(imagesFromPodSpec, imagePullSecrets)
+	return imagesFromPodSpec, nil
 }
 
-func generateImageAssociatedAndPullSecretsCombinations(images []string, imagePullSecrets map[string][]store.ImagePullSecret) []ImageWithAssociatedPullSecrets {
-	imageSecretsCombinations := make([]ImageWithAssociatedPullSecrets, 0)
-
-	for _, image := range images {
-		imageAssociatedPullSecrets := make([]store.ImagePullSecret, 0)
-		for registryName, secret := range imagePullSecrets {
-			if imageBelongsToRegistry(image, registryName) {
-				imageAssociatedPullSecrets = append(imageAssociatedPullSecrets, secret...)
-			}
-		}
-		imageName, imageTag := separateImageAndTag(image)
-		imageSecretsCombinations = append(imageSecretsCombinations, ImageWithAssociatedPullSecrets{
-			ImageName:        imageName,
-			ImageTag:         imageTag,
-			ImagePullSecrets: imageAssociatedPullSecrets,
-		})
-	}
-	return imageSecretsCombinations
-}
-
-func imageBelongsToRegistry(image string, registry string) bool {
-	if strings.Contains(image, registry) || !strings.Contains(image, ".") {
-		return true
-	}
-	return false
-}
-func getImagesFromPodSpec(pod v1.PodSpec) []string {
-	images := []string{}
+func getImagesFromPodSpec(pod v1.PodSpec) []*image.WithAssociatedPullSecrets {
+	var images []*image.WithAssociatedPullSecrets
 	for _, container := range pod.Containers {
-		images = append(images, container.Image)
+		images = append(images, image.NewWithAssociatedPullSecrets(container.Image))
 	}
 	return images
 }
 
 func getImagePullSecretNamesFromPodSpec(pod v1.PodSpec) []string {
-	imagePullSecretNames := []string{}
+	var imagePullSecretNames []string
 	for _, secret := range pod.ImagePullSecrets {
 		imagePullSecretNames = append(imagePullSecretNames, secret.Name)
 	}
 	return imagePullSecretNames
 }
 
-func separateImageAndTag(image string) (string, string) {
-	separatedImage := strings.Split(image, ":")
-	if len(separatedImage) == 2 {
-		return separatedImage[0], separatedImage[1]
+func appendPullSecretsToImages(images []*image.WithAssociatedPullSecrets, imagePullSecrets map[string][]image.PullSecret) {
+	for _, imageInstance := range images {
+		imageInstance.AppendImagePullSecretsWhichBelongsToImage(imagePullSecrets)
 	}
-	return image, "latest"
 }
 
-func ApiObjectEventToString(event watch.Event) string {
-	return fmt.Sprintf("%s", event.Type)
+func GenerateEventForEachExtractedImageWithKubernetesMetaDataInfo(event watch.EventType, extractedImagesWithAssociatedPullSecrets []*image.WithAssociatedPullSecrets, metaInfo types.KubernetesAPIObjectMetaInformation) []types.ObservedImageEvent {
+	events := make([]types.ObservedImageEvent, 0)
+	for _, imageWithAssociatedPullSecrets := range extractedImagesWithAssociatedPullSecrets {
+		events = append(events, types.ObservedImageEvent{
+			EventType: apiObjectEventToString(event),
+			ImageWithKubernetesMetadata: types.KubernetesAPIResource{
+				MetaInformation:      metaInfo,
+				ImageWithPullSecrets: imageWithAssociatedPullSecrets,
+			},
+		})
+	}
+	return events
+}
+func apiObjectEventToString(event watch.EventType) string {
+	return fmt.Sprintf("%s", event)
 }

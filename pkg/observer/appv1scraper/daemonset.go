@@ -25,11 +25,9 @@
 package appv1scraper
 
 import (
-	"fmt"
+	log "github.com/sirupsen/logrus"
 
-	"github.com/fwiedmann/differ/pkg/store"
-
-	"github.com/fwiedmann/differ/pkg/kubernetesscraper/util"
+	"github.com/fwiedmann/differ/pkg/observer/util"
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -38,22 +36,26 @@ import (
 	"github.com/fwiedmann/differ/pkg/types"
 )
 
-// Deployment types struct
-type Deployment struct {
-	deploymentAPIWatcher watch.Interface
+const daemonSetResourceType = "DaemonSet"
+
+// DaemonSet types struct
+type DaemonSet struct {
+	apiWatcher           watch.Interface
 	stopObservingChannel chan struct{}
 	observeConfig        *types.KubernetesObserverConfig
 }
 
-func NewDeploymentObserver() *Deployment {
-	return &Deployment{
+func NewDaemonSetObserver() *DaemonSet {
+	return &DaemonSet{
 		stopObservingChannel: make(chan struct{}),
 	}
 }
 
-func (d *Deployment) InitObserverWithConfig(observeConfig *types.KubernetesObserverConfig) error {
+func (d *DaemonSet) InitObserverWithConfig(observeConfig *types.KubernetesObserverConfig) error {
 	var err error
-	if d.deploymentAPIWatcher, err = observeConfig.KubernetesAPIClient.AppsV1().Deployments(observeConfig.NamespaceToScrape).Watch(metaV1.ListOptions{}); err != nil {
+	apiClient, namespace := observeConfig.KubernetesAPI.GetAPIClientAndNameSpace()
+
+	if d.apiWatcher, err = apiClient.AppsV1().DaemonSets(namespace).Watch(metaV1.ListOptions{}); err != nil {
 		return err
 	}
 	d.observeConfig = observeConfig
@@ -61,9 +63,9 @@ func (d *Deployment) InitObserverWithConfig(observeConfig *types.KubernetesObser
 	return nil
 }
 
-func (d *Deployment) UpdateConfig(observeConfig *types.KubernetesObserverConfig) error {
+func (d *DaemonSet) UpdateConfig(observeConfig *types.KubernetesObserverConfig) error {
 	d.stopObservingChannel <- struct{}{}
-	d.deploymentAPIWatcher.Stop()
+	d.apiWatcher.Stop()
 
 	if err := d.InitObserverWithConfig(observeConfig); err != nil {
 		return err
@@ -72,31 +74,37 @@ func (d *Deployment) UpdateConfig(observeConfig *types.KubernetesObserverConfig)
 }
 
 // SendObservedKubernetesAPIResource
-func (d *Deployment) SendObservedKubernetesAPIResource() {
-	apiObserveChannel := d.deploymentAPIWatcher.ResultChan()
+func (d *DaemonSet) SendObservedKubernetesAPIResource() {
+	apiObserveChannel := d.apiWatcher.ResultChan()
+Loop:
 	for {
 		select {
 		case apiObjectEvent := <-apiObserveChannel:
-			parsedDeployment := apiObjectEvent.Object.(*v1.Deployment)
-			extractedImagesWithAssociatedPullSecrets, _ := util.GetImagesAndImagePullSecrets(parsedDeployment.Spec.Template, d.observeConfig)
-			eventType := fmt.Sprintf("%s", apiObjectEvent.Type)
-
-			for _, imageWithAssociatedPullSecrets := range extractedImagesWithAssociatedPullSecrets {
-				d.observeConfig.ObserverChannel <- types.ObservedImageEvent{
-					EventType: eventType,
-					ImageWithKubernetesMetadata: store.KubernetesAPIResource{
-						APIVersion:   "appV1",
-						ResourceType: "Deployment",
-						Namespace:    d.observeConfig.NamespaceToScrape,
-						WorkloadName: parsedDeployment.Name,
-						ImageName:    imageWithAssociatedPullSecrets.ImageName,
-						ImageTag:     imageWithAssociatedPullSecrets.ImageTag,
-						Secrets:      imageWithAssociatedPullSecrets.ImagePullSecrets,
-					},
-				}
+			parsedDaemonSet, ok := apiObjectEvent.Object.(*v1.DaemonSet)
+			if !ok {
+				log.Info("could not convert event")
+				continue
 			}
+
+			extractedImagesWithAssociatedPullSecrets, err := util.GetImagesWithImagePullSecrets(parsedDaemonSet.Spec.Template, d.observeConfig)
+			if err != nil {
+				log.Info("%s", err.Error())
+			}
+			kubernetesResourceMetaInfo := types.KubernetesAPIObjectMetaInformation{
+				APIVersion:   apiVersion,
+				ResourceType: daemonSetResourceType,
+				Namespace:    parsedDaemonSet.Namespace,
+				WorkloadName: parsedDaemonSet.Name,
+			}
+
+			eventsToSend := util.GenerateEventForEachExtractedImageWithKubernetesMetaDataInfo(apiObjectEvent.Type, extractedImagesWithAssociatedPullSecrets, kubernetesResourceMetaInfo)
+
+			for _, event := range eventsToSend {
+				d.observeConfig.ObserverChannel <- event
+			}
+
 		case <-d.stopObservingChannel:
-			break
+			break Loop
 		}
 	}
 }

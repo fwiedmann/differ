@@ -28,9 +28,11 @@ import (
 	"sync"
 	"time"
 
+	kubernetes_client "github.com/fwiedmann/differ/pkg/kubernetes-client"
+
 	log "github.com/sirupsen/logrus"
 
-	"github.com/fwiedmann/differ/pkg/kubernetesscraper"
+	"github.com/fwiedmann/differ/pkg/observer"
 
 	"github.com/fwiedmann/differ/pkg/config"
 	"github.com/fwiedmann/differ/pkg/store"
@@ -66,16 +68,22 @@ func NewController(c *config.Config) *Controller {
 }
 
 // Run starts differ controller loop
-func (controller *Controller) Run(resourceScrapers []ResourceScraper) error {
-	controllerConfig := controller.config.GetConfig()
-	o, err := kubernetesscraper.InitKubernetesAPIObserversWithKubernetesClient(controllerConfig.Namespace)
+func (c *Controller) Run(resourceScrapers []ResourceScraper) error {
+	controllerConfig := c.config.GetConfig()
+
+	client, err := kubernetes_client.InitKubernetesAPIClient(controllerConfig.Namespace)
 	if err != nil {
 		return err
 	}
+	o, err := observer.InitKubernetesAPIObservers(client)
+	if err != nil {
+		return err
+	}
+
 	o.ObserveAPIs()
 	go func() {
 		for {
-			log.Info("%v", <-o.ObserverChannel)
+			log.Infof("%+v", <-o.ObserverChannel)
 		}
 	}()
 	/*remotes := registry.NewRemoteStore()

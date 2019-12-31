@@ -1,11 +1,9 @@
 package store
 
 import (
-	"reflect"
-	"strings"
 	"sync"
 
-	v1 "k8s.io/api/core/v1"
+	"github.com/fwiedmann/differ/pkg/types"
 )
 
 // todo: delete not given resources, to put instance at top level of controller.Run()
@@ -14,27 +12,12 @@ type (
 	// Cache stores all scraped images with KubernetesAPIResource in the way of:
 	// ["image"][]KubernetesAPIResource{}
 	Instance struct {
-		data map[string][]KubernetesAPIResource
+		data map[string][]types.KubernetesAPIResource
 		m    sync.RWMutex
-	}
-
-	ImagePullSecret struct {
-		Username string
-		Password string
-	}
-	// KubernetesAPIResource contains unique meta information from scraped resource types
-	KubernetesAPIResource struct {
-		APIVersion   string
-		ResourceType string
-		Namespace    string
-		WorkloadName string
-		ImageName    string
-		ImageTag     string
-		Secrets      []ImagePullSecret
 	}
 )
 
-func NewInstance() *Instance {
+/*func NewInstance() *Instance {
 	return &Instance{
 		data: make(map[string][]KubernetesAPIResource),
 		m:    sync.RWMutex{},
@@ -109,4 +92,4 @@ func getResourceStoreKeys(scrapedImage string) (image, tag string) {
 		return split[0], split[1]
 	}
 	return scrapedImage, "latest"
-}
+}*/

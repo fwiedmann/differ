@@ -25,20 +25,15 @@
 package metrics
 
 import (
-	"fmt"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/fwiedmann/differ/pkg/config"
-
-	"github.com/fwiedmann/differ/pkg/store"
 
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/common/log"
 )
 
 var (
@@ -125,6 +120,7 @@ func (c *dynamicCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
+/*
 // DeleteNotScrapedResources which are not scraped by the last scrape
 func DeleteNotScrapedResources(cache *store.Instance) {
 	m.Lock()
@@ -171,7 +167,7 @@ func DynamicMetricSetGaugeValue(metricName string, value float64, labels ...stri
 	}
 	m.Unlock()
 }
-
+*/
 var promRegistry = prometheus.NewRegistry()
 
 func init() {

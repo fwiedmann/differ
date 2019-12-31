@@ -24,23 +24,17 @@
 
 package types
 
-import (
-	"k8s.io/client-go/kubernetes"
-)
+import "github.com/fwiedmann/differ/pkg/image"
 
-type KubernetesObserverConfig struct {
-	ObserverChannel   chan ObservedImageEvent
-	NamespaceToScrape string
-	KubernetesAPI     KubernetesAPIClient
+type KubernetesAPIObjectMetaInformation struct {
+	APIVersion   string
+	ResourceType string
+	Namespace    string
+	WorkloadName string
 }
 
-type KubernetesAPIClient interface {
-	GetAPIClientAndNameSpace() (*kubernetes.Clientset, string)
-	GetAPIClient() *kubernetes.Clientset
-	GetNameSpace() string
-}
-
-type ObservedImageEvent struct {
-	EventType                   string
-	ImageWithKubernetesMetadata KubernetesAPIResource
+// KubernetesAPIResource contains unique meta information from scraped resource types
+type KubernetesAPIResource struct {
+	MetaInformation      KubernetesAPIObjectMetaInformation
+	ImageWithPullSecrets *image.WithAssociatedPullSecrets
 }

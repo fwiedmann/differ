@@ -22,83 +22,61 @@
  * SOFTWARE.
  */
 
-package kubernetesscraper
+package observer
 
 import (
 	"errors"
 
-	"github.com/fwiedmann/differ/pkg/kubernetesscraper/appv1scraper"
+	"github.com/fwiedmann/differ/pkg/observer/appv1scraper"
 	"github.com/fwiedmann/differ/pkg/types"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
-
-func init() {
-	apiObservers = append(apiObservers, appv1scraper.NewDeploymentObserver())
-}
 
 var (
 	apiObservers []KubernetesAPIObserver
 )
 
+func init() {
+	apiObservers = append(apiObservers, appv1scraper.NewDeploymentObserver(), appv1scraper.NewDaemonSetObserver(), appv1scraper.NewStatefulSetObserver())
+}
+
+// KubernetesAPISObserver represents the basic behaviour of observers
 type KubernetesAPIObserver interface {
 	InitObserverWithConfig(observeConfig *types.KubernetesObserverConfig) error
 	SendObservedKubernetesAPIResource()
 	UpdateConfig(*types.KubernetesObserverConfig) error
 }
 
+// KubernetesAPISObserver initialize all api scraper and provides an event channel
 type KubernetesAPISObserver struct {
 	ObserverChannel chan types.ObservedImageEvent
 }
 
-func InitKubernetesAPIObserversWithKubernetesClient(namespaceToScrape string) (*KubernetesAPISObserver, error) {
+// InitKubernetesAPIObservers with types.KubernetesObserverConfig
+func InitKubernetesAPIObservers(kubernetesAPIClient types.KubernetesAPIClient) (*KubernetesAPISObserver, error) {
+	observerConfig := newObserverConfig(kubernetesAPIClient)
 
-	kubernetesAPIClient, err := initKubernetesClient()
-	if err != nil {
+	if err := initKubernetesAPIObservers(observerConfig); err != nil {
 		return nil, err
 	}
-
-	observerChannel := make(chan types.ObservedImageEvent, len(apiObservers))
-
-	err = initAllObservers(&types.KubernetesObserverConfig{
-		NamespaceToScrape:   namespaceToScrape,
-		KubernetesAPIClient: kubernetesAPIClient,
-		ObserverChannel:     observerChannel,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
 	return &KubernetesAPISObserver{
-		ObserverChannel: observerChannel,
+		ObserverChannel: observerConfig.ObserverChannel,
 	}, nil
 }
 
-func (o *KubernetesAPISObserver) ObserveAPIs() {
-	for _, kubernetesAPIObserver := range apiObservers {
-		go kubernetesAPIObserver.SendObservedKubernetesAPIResource()
-	}
-}
-
-func initKubernetesClient() (*kubernetes.Clientset, error) {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return &kubernetes.Clientset{}, err
+func newObserverConfig(kubernetesAPIClient types.KubernetesAPIClient) *types.KubernetesObserverConfig {
+	return &types.KubernetesObserverConfig{
+		ObserverChannel:   make(chan types.ObservedImageEvent, len(apiObservers)),
+		NamespaceToScrape: kubernetesAPIClient.GetNameSpace(),
+		KubernetesAPI:     kubernetesAPIClient,
 	}
 
-	if clientset, err := kubernetes.NewForConfig(config); err != nil {
-		return &kubernetes.Clientset{}, err
-	} else {
-		return clientset, nil
-	}
 }
-func initAllObservers(observeConfig *types.KubernetesObserverConfig) error {
+
+func initKubernetesAPIObservers(observerConfig *types.KubernetesObserverConfig) error {
 	var initFailed bool
 	for _, kubernetesAPIObserver := range apiObservers {
-
-		if err := kubernetesAPIObserver.InitObserverWithConfig(observeConfig); err != nil {
+		if err := kubernetesAPIObserver.InitObserverWithConfig(observerConfig); err != nil {
 			log.Error(err)
 			initFailed = true
 		}
@@ -107,4 +85,11 @@ func initAllObservers(observeConfig *types.KubernetesObserverConfig) error {
 		return errors.New("could not initialize all kubernetes api servers")
 	}
 	return nil
+}
+
+// ObserveAPIs start all observers
+func (kubernetesObserver *KubernetesAPISObserver) ObserveAPIs() {
+	for _, kubernetesAPIObserver := range apiObservers {
+		go kubernetesAPIObserver.SendObservedKubernetesAPIResource()
+	}
 }

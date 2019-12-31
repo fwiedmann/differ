@@ -22,25 +22,42 @@
  * SOFTWARE.
  */
 
-package types
+package kubernetes_client
 
 import (
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
-type KubernetesObserverConfig struct {
-	ObserverChannel   chan ObservedImageEvent
-	NamespaceToScrape string
-	KubernetesAPI     KubernetesAPIClient
+type KubernetesAPIClient struct {
+	namespace string
+	client    *kubernetes.Clientset
 }
 
-type KubernetesAPIClient interface {
-	GetAPIClientAndNameSpace() (*kubernetes.Clientset, string)
-	GetAPIClient() *kubernetes.Clientset
-	GetNameSpace() string
+func (k *KubernetesAPIClient) GetAPIClientAndNameSpace() (*kubernetes.Clientset, string) {
+	return k.client, k.namespace
 }
 
-type ObservedImageEvent struct {
-	EventType                   string
-	ImageWithKubernetesMetadata KubernetesAPIResource
+func (k *KubernetesAPIClient) GetAPIClient() *kubernetes.Clientset {
+	return k.client
+}
+
+func (k *KubernetesAPIClient) GetNameSpace() string {
+	return k.namespace
+}
+
+func InitKubernetesAPIClient(namespace string) (*KubernetesAPIClient, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return &KubernetesAPIClient{}, err
+	}
+
+	if initializedClient, err := kubernetes.NewForConfig(config); err != nil {
+		return &KubernetesAPIClient{}, err
+	} else {
+		return &KubernetesAPIClient{
+			namespace: namespace,
+			client:    initializedClient,
+		}, nil
+	}
 }
