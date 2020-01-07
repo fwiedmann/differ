@@ -25,71 +25,23 @@
 package observer
 
 import (
-	"errors"
-
-	"github.com/fwiedmann/differ/pkg/observer/appv1scraper"
-	"github.com/fwiedmann/differ/pkg/types"
-	log "github.com/sirupsen/logrus"
+	"github.com/fwiedmann/differ/pkg/event"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 )
 
-var (
-	apiObservers []KubernetesAPIObserver
-)
-
-func init() {
-	apiObservers = append(apiObservers, appv1scraper.NewDeploymentObserver(), appv1scraper.NewDaemonSetObserver(), appv1scraper.NewStatefulSetObserver())
+type EventGenerator interface {
+	GenerateEventsFromPodSpec(podSpec v1.PodSpec, kubernetesMetaInformation event.KubernetesAPIObjectMetaInformation) ([]event.ObservedKubernetesAPIObjectEvent, error)
 }
 
-// KubernetesAPISObserver represents the basic behaviour of observers
-type KubernetesAPIObserver interface {
-	InitObserverWithConfig(observeConfig *types.KubernetesObserverConfig) error
-	SendObservedKubernetesAPIResource()
-	UpdateConfig(*types.KubernetesObserverConfig) error
+type Config struct {
+	NamespaceToScrape   string
+	KubernetesAPIClient kubernetes.Interface
+	event.KubernetesEventCommunicationChannels
+	EventGenerator *event.Generator
 }
 
-// KubernetesAPISObserver initialize all api scraper and provides an event channel
-type KubernetesAPISObserver struct {
-	ObserverChannel chan types.ObservedImageEvent
-}
-
-// InitKubernetesAPIObservers with types.KubernetesObserverConfig
-func InitKubernetesAPIObservers(kubernetesAPIClient types.KubernetesAPIClient) (*KubernetesAPISObserver, error) {
-	observerConfig := newObserverConfig(kubernetesAPIClient)
-
-	if err := initKubernetesAPIObservers(observerConfig); err != nil {
-		return nil, err
-	}
-	return &KubernetesAPISObserver{
-		ObserverChannel: observerConfig.ObserverChannel,
-	}, nil
-}
-
-func newObserverConfig(kubernetesAPIClient types.KubernetesAPIClient) *types.KubernetesObserverConfig {
-	return &types.KubernetesObserverConfig{
-		ObserverChannel:   make(chan types.ObservedImageEvent, len(apiObservers)),
-		NamespaceToScrape: kubernetesAPIClient.GetNameSpace(),
-		KubernetesAPI:     kubernetesAPIClient,
-	}
-
-}
-
-func initKubernetesAPIObservers(observerConfig *types.KubernetesObserverConfig) error {
-	var initFailed bool
-	for _, kubernetesAPIObserver := range apiObservers {
-		if err := kubernetesAPIObserver.InitObserverWithConfig(observerConfig); err != nil {
-			log.Error(err)
-			initFailed = true
-		}
-	}
-	if initFailed {
-		return errors.New("could not initialize all kubernetes api servers")
-	}
-	return nil
-}
-
-// ObserveAPIs start all observers
-func (kubernetesObserver *KubernetesAPISObserver) ObserveAPIs() {
-	for _, kubernetesAPIObserver := range apiObservers {
-		go kubernetesAPIObserver.SendObservedKubernetesAPIResource()
-	}
+func InitNewKubernetesFactory(observerConfig Config) informers.SharedInformerFactory {
+	return informers.NewSharedInformerFactoryWithOptions(observerConfig.KubernetesAPIClient, 0, informers.WithNamespace(observerConfig.NamespaceToScrape))
 }

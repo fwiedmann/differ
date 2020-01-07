@@ -17,6 +17,8 @@ spec:
       annotations:
         differ/active: "true"
     spec:
+      imagePullSecrets:
+        - name: demo
       containers:
         - name: test-workload-deployment
           image: wiedmannfelix/heartbeat:1.2.0

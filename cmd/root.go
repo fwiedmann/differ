@@ -27,9 +27,15 @@ package cmd
 import (
 	"github.com/fwiedmann/differ/pkg/config"
 	"github.com/fwiedmann/differ/pkg/controller"
+	"github.com/fwiedmann/differ/pkg/event"
+	kubernetes_client "github.com/fwiedmann/differ/pkg/kubernetes-client"
 	"github.com/fwiedmann/differ/pkg/metrics"
+	"github.com/fwiedmann/differ/pkg/observer"
+	"github.com/fwiedmann/differ/pkg/observer/appv1"
 	"github.com/spf13/cobra"
 )
+
+var observers []controller.Observer
 
 var rootCmd = cobra.Command{
 	Use:          "differ",
@@ -42,27 +48,49 @@ var rootCmd = cobra.Command{
 		}
 
 		conf := o.GetConfig()
+		isDevMode, err := cmd.Flags().GetBool("devmode")
+		if err != nil {
+			return err
+		}
 
-		c := controller.NewController(o)
+		kubernetesAPIClient, err := kubernetes_client.InitKubernetesAPIClient(isDevMode)
+		if err != nil {
+			return err
+		}
+
+		communicationChannels := event.InitCommunicationChannels()
+		observerConfig := observer.Config{
+			NamespaceToScrape:                    conf.Namespace,
+			KubernetesAPIClient:                  kubernetesAPIClient,
+			KubernetesEventCommunicationChannels: communicationChannels,
+			EventGenerator:                       event.NewGenerator(kubernetesAPIClient, conf.Namespace),
+		}
+
+		initAllObservers(observerConfig)
+		c := controller.NewDifferController(communicationChannels, observers...)
 
 		go func() {
 			if err := metrics.StartMetricsEndpoint(conf.Metrics); err != nil {
 				panic(err)
 			}
 		}()
-		return c.Run(scrapers)
+		return c.StartController()
 	},
 }
-
-var (
-	scrapers []controller.ResourceScraper
-)
 
 var configFile string
 
 func init() {
+	observers = append(observers, appv1.NewDeploymentObserver(), appv1.NewDaemonSetObserver(), appv1.NewStatefulSetObserver())
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "./config.yaml", "Path to differ config file")
 	rootCmd.Flags().String("loglevel", "info", "Set loglevel. Default is info")
+	rootCmd.Flags().Bool("devmode", false, "Run differ from outside a cluster")
+}
+
+func initAllObservers(observerConfig observer.Config) {
+	for _, resourceObserver := range observers {
+		resourceObserver.InitObserverWithKubernetesSharedInformer(observerConfig)
+	}
 }
 
 // Execute executes the rootCmd

@@ -3,23 +3,23 @@ package store
 import (
 	"sync"
 
-	"github.com/fwiedmann/differ/pkg/types"
+	"github.com/fwiedmann/differ/pkg/event"
 )
 
-// todo: delete not given resources, to put instance at top level of controller.Run()
+// todo: delete not given resources, to put instance at top level of controller.StartController()
 
 type (
-	// Cache stores all scraped images with KubernetesAPIResource in the way of:
-	// ["image"][]KubernetesAPIResource{}
+	// Cache stores all scraped images with ObservedKubernetesAPIObjectEvent in the way of:
+	// ["image"][]ObservedKubernetesAPIObjectEvent{}
 	Instance struct {
-		data map[string][]types.KubernetesAPIResource
+		data map[string][]event.ObservedKubernetesAPIObjectEvent
 		m    sync.RWMutex
 	}
 )
 
 /*func NewInstance() *Instance {
 	return &Instance{
-		data: make(map[string][]KubernetesAPIResource),
+		data: make(map[string][]ObservedKubernetesAPIObjectEvent),
 		m:    sync.RWMutex{},
 	}
 }
@@ -30,10 +30,10 @@ func (storeInstance *Instance) AddResource(apiVersion, kind, namespace, name str
 	defer storeInstance.m.Unlock()
 	for _, container := range containers {
 
-		image, tag := getResourceStoreKeys(container.Image)
+		image, tag := getResourceStortypeseKeys(container.Image)
 
 		if _, found := storeInstance.data[image]; !found {
-			storeInstance.data[image] = make([]KubernetesAPIResource, 0)
+			storeInstance.data[image] = make([]ObservedKubernetesAPIObjectEvent, 0)
 		}
 
 		var matchingSecrets []ImagePullSecret
@@ -43,7 +43,7 @@ func (storeInstance *Instance) AddResource(apiVersion, kind, namespace, name str
 				matchingSecrets = append(matchingSecrets, regsistrySecrets...)
 			}
 		}
-		resourceInfo := KubernetesAPIResource{
+		resourceInfo := ObservedKubernetesAPIObjectEvent{
 			APIVersion:   apiVersion,
 			ResourceType: kind,
 			Namespace:    namespace,
@@ -67,11 +67,11 @@ func (storeInstance *Instance) AddResource(apiVersion, kind, namespace, name str
 	}
 }
 
-func (storeInstance *Instance) GetDeepCopy() map[string][]KubernetesAPIResource {
+func (storeInstance *Instance) GetDeepCopy() map[string][]ObservedKubernetesAPIObjectEvent {
 
 	storeInstance.m.RLock()
 	defer storeInstance.m.RUnlock()
-	deepCopy := make(map[string][]KubernetesAPIResource)
+	deepCopy := make(map[string][]ObservedKubernetesAPIObjectEvent)
 	for key, value := range storeInstance.data {
 		deepCopy[key] = value
 	}

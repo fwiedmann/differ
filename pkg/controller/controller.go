@@ -25,57 +25,50 @@
 package controller
 
 import (
-	"sync"
-	"time"
-
-	kubernetes_client "github.com/fwiedmann/differ/pkg/kubernetes-client"
-
+	"github.com/fwiedmann/differ/pkg/observer"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/fwiedmann/differ/pkg/observer"
-
-	"github.com/fwiedmann/differ/pkg/config"
-	"github.com/fwiedmann/differ/pkg/store"
-	"k8s.io/client-go/kubernetes"
+	"github.com/fwiedmann/differ/pkg/event"
 )
 
-//ResourceScraper save scraped data in store
-type ResourceScraper interface {
-	GetWorkloadResources(c *kubernetes.Clientset, namespace string, scrapedResources *store.Instance) error
+type Observer interface {
+	InitObserverWithKubernetesSharedInformer(observerConfig observer.Config)
+	StartObserving()
 }
 
-// Controller types struct
-type Controller struct {
-	config                  *config.Config
-	configMutex             sync.RWMutex
-	kubernetesResourceStore store.Instance
+// DifferController types struct
+type DifferController struct {
+	kubernetesEventChannels event.KubernetesEventCommunicationChannels
+	observers               []Observer
 }
 
-// ApplyConfig for dynamic reload of the configuration
-func (c *Controller) ApplyConfig(newConfig *config.Config) {
-	c.configMutex.Lock()
-	defer c.configMutex.Unlock()
-	c.config = newConfig
-}
-
-// NewController initialize the differ controller
-func NewController(c *config.Config) *Controller {
-	return &Controller{
-		config:                  c,
-		configMutex:             sync.RWMutex{},
-		kubernetesResourceStore: store.Instance{},
+// NewDifferController initialize the differ controller
+func NewDifferController(kubernetesEventChannels event.KubernetesEventCommunicationChannels, observers ...Observer) *DifferController {
+	return &DifferController{
+		kubernetesEventChannels: kubernetesEventChannels,
+		observers:               observers,
 	}
 }
 
-// Run starts differ controller loop
-func (c *Controller) Run(resourceScrapers []ResourceScraper) error {
-	controllerConfig := c.config.GetConfig()
-
-	client, err := kubernetes_client.InitKubernetesAPIClient(controllerConfig.Namespace)
-	if err != nil {
-		return err
+// StartController starts differ controller loop
+func (c *DifferController) StartController() error {
+	for _, o := range c.observers {
+		go o.StartObserving()
 	}
-	o, err := observer.InitKubernetesAPIObservers(client)
+	for {
+		select {
+		case createEvent := <-c.kubernetesEventChannels.GetADDReceiverEventChanel():
+			log.Infof("create event: %+v", createEvent)
+		case deleteEvent := <-c.kubernetesEventChannels.GetDELETReceiverEventChanel():
+			log.Infof("delete event: %v", deleteEvent)
+		case updateEvent := <-c.kubernetesEventChannels.GetUPDATEReceiverEventChanel():
+			log.Infof("update event: %v", updateEvent)
+		case errorEvent := <-c.kubernetesEventChannels.GetERRORReceiverEventChanel():
+			panic(errorEvent)
+		}
+	}
+
+	/*o, err := observer.InitKubernetesAPIObservers(client, controllerConfig.Namespace)
 	if err != nil {
 		return err
 	}
@@ -85,94 +78,92 @@ func (c *Controller) Run(resourceScrapers []ResourceScraper) error {
 		for {
 			log.Infof("%+v", <-o.ObserverChannel)
 		}
-	}()
+	}()*/
 	/*remotes := registry.NewRemoteStore()
 
-	for {
-		conf := controller.controllerConfig.GetConfig()
-		timeBefore := time.Now()
-		resourceStore := store.NewInstance()
+		for {
+			conf := controller.controllerConfig.GetConfig()
+			timeBefore := time.Now()
+			resourceStore := store.NewInstance()
 
-		kubernetesClient, err := util.InitKubernetesClient()
-		if err != nil {
-			return err
-		}
-
-		for _, s := range resourceScrapers {
-			if err := s.GetWorkloadResources(kubernetesClient, conf.Namespace, resourceStore); err != nil {
+			kubernetesClient, err := util.InitKubernetesClient()
+			if err != nil {
 				return err
 			}
-		}
-		metrics.DifferConfig.WithLabelValues(conf.Version, conf.Namespace, conf.Sleep, strconv.Itoa(conf.Metrics.Port), conf.Metrics.Path)
-		metrics.DifferControllerRuns.Inc()
-		metrics.DifferScrapedImages.Set(float64(resourceStore.Size()))
-		metrics.DeleteNotScrapedResources(resourceStore)
 
-		log.Tracef("Scraped resources: %v", resourceStore)
+			for _, s := range resourceScrapers {
+				if err := s.GetWorkloadResources(kubernetesClient, conf.Namespace, resourceStore); err != nil {
+					return err
+				}
+			}
+			metrics.DifferConfig.WithLabelValues(conf.Version, conf.Namespace, conf.Sleep, strconv.Itoa(conf.Metrics.Port), conf.Metrics.Path)
+			metrics.DifferControllerRuns.Inc()
+			metrics.DifferScrapedImages.Set(float64(resourceStore.Size()))
+			metrics.DeleteNotScrapedResources(resourceStore)
 
-		// limit concurrent execution to 300 with tokens
-		workerTokens := make(chan struct{}, 300)
-		workerErrors := make(chan error, resourceStore.Size())
-		var wg sync.WaitGroup
+			log.Tracef("Scraped resources: %v", resourceStore)
 
-		// start worker for each image
-		for image, imageInfos := range resourceStore.GetDeepCopy() {
-			wg.Add(1)
-			go func(imageName string, resourceMetaInfos []store.KubernetesAPIResource, errChan chan<- error) {
-				workerTokens <- struct{}{}
-				defer wg.Done()
-				auths := util.GatherAuths(resourceMetaInfos)
+			// limit concurrent execution to 300 with tokens
+			workerTokens := make(chan struct{}, 300)
+			workerErrors := make(chan error, resourceStore.Size())
+			var wg sync.WaitGroup
 
-				if err := remotes.CreateOrUpdateRemote(imageName, auths); err != nil {
-					errChan <- err
-				} else {
+			// start worker for each image
+			for image, imageInfos := range resourceStore.GetDeepCopy() {
+				wg.Add(1)
+				go func(imageName string, resourceMetaInfos []store.KubernetesAPIResource, errChan chan<- error) {
+					workerTokens <- struct{}{}
+					defer wg.Done()
+					auths := util.GatherAuths(resourceMetaInfos)
 
-					remote := remotes.GetRemoteByID(imageName)
-					remoteTags, err := remote.GetTags()
-					if err != nil {
+					if err := remotes.CreateOrUpdateRemote(imageName, auths); err != nil {
 						errChan <- err
 					} else {
-						for _, info := range resourceMetaInfos {
-							metrics.DynamicMetricSetGaugeValue("differ_scraped_image", 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace)
-							valid, pattern := util.IsValidTag(info.ImageTag)
-							if !valid {
-								log.Debugf("Tag %s from image %s does not match any valid pattern", info.ImageTag, info.ImageName)
-								metrics.DynamicMetricSetGaugeValue("differ_unknown_image_tag", 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace)
-								continue
+
+						remote := remotes.GetRemoteByID(imageName)
+						remoteTags, err := remote.GetTags()
+						if err != nil {
+							errChan <- err
+						} else {
+							for _, info := range resourceMetaInfos {
+								metrics.DynamicMetricSetGaugeValue("differ_scraped_image", 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace)
+								valid, pattern := util.IsValidTag(info.ImageTag)
+								if !valid {
+									log.Debugf("Tag %s from image %s does not match any valid pattern", info.ImageTag, info.ImageName)
+									metrics.DynamicMetricSetGaugeValue("differ_unknown_image_tag", 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace)
+									continue
+								}
+								sortedTags := util.SortTagsByPattern(remoteTags, pattern)
+								if sortedTags[len(sortedTags)-1] != info.ImageTag {
+									metrics.DynamicMetricSetGaugeValue("differ_update_image", 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace, sortedTags[len(sortedTags)-1])
+								}
 							}
-							sortedTags := util.SortTagsByPattern(remoteTags, pattern)
-							if sortedTags[len(sortedTags)-1] != info.ImageTag {
-								metrics.DynamicMetricSetGaugeValue("differ_update_image", 1, info.ImageName, info.ImageTag, info.ResourceType, info.WorkloadName, info.APIVersion, info.Namespace, sortedTags[len(sortedTags)-1])
-							}
+							errChan <- nil
 						}
-						errChan <- nil
 					}
-				}
-				<-workerTokens
-			}(image, imageInfos, workerErrors)
-			log.Debugf("%+v", resourceStore)
-		}
-
-		// wait for all workers
-		go func() {
-			wg.Wait()
-			close(workerTokens)
-			close(workerErrors)
-		}()
-
-		for workerError := range workerErrors {
-			if err := util.IsRegistryError(workerError); err != nil {
-				return err
+					<-workerTokens
+				}(image, imageInfos, workerErrors)
+				log.Debugf("%+v", resourceStore)
 			}
-		}
 
-		timeAfter := time.Now()
-		metrics.DifferControllerDuration.Set(float64(timeAfter.Sub(timeBefore).Milliseconds()))
+			// wait for all workers
+			go func() {
+				wg.Wait()
+				close(workerTokens)
+				close(workerErrors)
+			}()
+	observerConfig
+			for workerError := range workerErrors {
+				if err := util.IsRegistryError(workerError); err != nil {
+					return err
+				}
+			}
 
-		controller.controllerConfig.ControllerSleep()
-	}*/
+			timeAfter := time.Now()
+			metrics.DifferControllerDuration.Set(float64(timeAfter.Sub(timeBefore).Milliseconds()))
 
-	t, _ := time.ParseDuration("5h")
-	time.Sleep(t)
+			controller.controllerConfig.ControllerSleep()
+		}*/
+
 	return nil
 }

@@ -25,39 +25,41 @@
 package kubernetes_client
 
 import (
+	"os"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
-type KubernetesAPIClient struct {
-	namespace string
-	client    *kubernetes.Clientset
-}
+func InitKubernetesAPIClient(devMode bool) (kubernetes.Interface, error) {
+	var config *rest.Config
+	var err error
+	if devMode {
+		config, err = initFromKubeConfig()
+	} else {
+		config, err = initInCLusterConfig()
+	}
 
-func (k *KubernetesAPIClient) GetAPIClientAndNameSpace() (*kubernetes.Clientset, string) {
-	return k.client, k.namespace
-}
-
-func (k *KubernetesAPIClient) GetAPIClient() *kubernetes.Clientset {
-	return k.client
-}
-
-func (k *KubernetesAPIClient) GetNameSpace() string {
-	return k.namespace
-}
-
-func InitKubernetesAPIClient(namespace string) (*KubernetesAPIClient, error) {
-	config, err := rest.InClusterConfig()
 	if err != nil {
-		return &KubernetesAPIClient{}, err
+		return nil, err
 	}
 
 	if initializedClient, err := kubernetes.NewForConfig(config); err != nil {
-		return &KubernetesAPIClient{}, err
+		return nil, err
 	} else {
-		return &KubernetesAPIClient{
-			namespace: namespace,
-			client:    initializedClient,
-		}, nil
+		return initializedClient, nil
 	}
+}
+
+func initFromKubeConfig() (*rest.Config, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+	return clientcmd.BuildConfigFromFlags("", homeDir+"/.kube/config")
+}
+
+func initInCLusterConfig() (*rest.Config, error) {
+	return rest.InClusterConfig()
 }

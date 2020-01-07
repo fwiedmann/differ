@@ -39,9 +39,9 @@ type PullSecret struct {
 	Password string
 }
 
-func NewWithAssociatedPullSecrets(rawImage string) *WithAssociatedPullSecrets {
+func NewWithAssociatedPullSecrets(rawImage string) WithAssociatedPullSecrets {
 	name, tag := separateImageAndTag(rawImage)
-	return &WithAssociatedPullSecrets{
+	return WithAssociatedPullSecrets{
 		imageName: name,
 		imageTag:  tag,
 	}
@@ -72,7 +72,7 @@ func (i *WithAssociatedPullSecrets) appendPullSecrets(matchedPullSecrets []PullS
 
 }
 func imageBelongsToRegistry(image string, registry string) bool {
-	if strings.Contains(image, registry) || !strings.Contains(image, ".") {
+	if strings.Contains(image, registry) {
 		return true
 	}
 	return false
@@ -80,14 +80,23 @@ func imageBelongsToRegistry(image string, registry string) bool {
 
 func separateImageAndTag(rawImage string) (imageName string, imageTag string) {
 	separatedImage := splitImage(rawImage)
+
+	if isDockerHubImage(separatedImage[0]) {
+		separatedImage[0] = "docker.io/" + separatedImage[0]
+	}
+
 	if hasTag(separatedImage) {
 		return separatedImage[0], separatedImage[1]
 	}
-	return rawImage, "latest"
+	return separatedImage[0], "latest"
 }
 
 func splitImage(image string) []string {
 	return strings.Split(image, ":")
+}
+
+func isDockerHubImage(imageName string) bool {
+	return !strings.Contains(imageName, ".")
 }
 
 func hasTag(separatedImage []string) bool {

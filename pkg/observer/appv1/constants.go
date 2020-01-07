@@ -22,25 +22,9 @@
  * SOFTWARE.
  */
 
-package types
+package appv1
 
-import (
-	"k8s.io/client-go/kubernetes"
-)
-
-type KubernetesObserverConfig struct {
-	ObserverChannel   chan ObservedImageEvent
-	NamespaceToScrape string
-	KubernetesAPI     KubernetesAPIClient
-}
-
-type KubernetesAPIClient interface {
-	GetAPIClientAndNameSpace() (*kubernetes.Clientset, string)
-	GetAPIClient() *kubernetes.Clientset
-	GetNameSpace() string
-}
-
-type ObservedImageEvent struct {
-	EventType                   string
-	ImageWithKubernetesMetadata KubernetesAPIResource
-}
+const apiVersion = "appV1"
+const deploymentResourceType = "StatefulSet"
+const daemonSetResourceType = "DaemonSet"
+const statefulSteSetResourceType = "StatefulSet"

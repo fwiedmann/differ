@@ -5,6 +5,7 @@ go 1.13
 require (
 	github.com/antonfisher/nested-logrus-formatter v1.0.2
 	github.com/gogo/protobuf v1.3.0 // indirect
+	github.com/google/martian v2.1.0+incompatible
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/prometheus/client_golang v1.2.1
 	github.com/prometheus/common v0.7.0
