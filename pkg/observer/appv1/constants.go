@@ -25,6 +25,6 @@
 package appv1
 
 const apiVersion = "appV1"
-const deploymentResourceType = "StatefulSet"
+const deploymentResourceType = "Deployment"
 const daemonSetResourceType = "DaemonSet"
 const statefulSteSetResourceType = "StatefulSet"

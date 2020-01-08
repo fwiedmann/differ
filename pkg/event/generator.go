@@ -27,7 +27,7 @@ package event
 import (
 	"encoding/json"
 
-	image "github.com/fwiedmann/differ/pkg/image"
+	"github.com/fwiedmann/differ/pkg/image"
 	v1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -60,7 +60,7 @@ func (eventGenerator *Generator) GenerateEventsFromPodSpec(podSpec v1.PodSpec, k
 func (eventGenerator *Generator) extractImagesFromPodSpec(pod v1.PodSpec) []image.WithAssociatedPullSecrets {
 	var images []image.WithAssociatedPullSecrets
 	for _, container := range pod.Containers {
-		images = append(images, image.NewWithAssociatedPullSecrets(container.Image))
+		images = append(images, image.NewWithAssociatedPullSecrets(container.Image, container.Name))
 	}
 	return images
 }

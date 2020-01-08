@@ -29,9 +29,10 @@ import (
 )
 
 type WithAssociatedPullSecrets struct {
-	imageName   string
-	imageTag    string
-	pullSecrets []PullSecret
+	containerName string
+	imageName     string
+	imageTag      string
+	pullSecrets   []PullSecret
 }
 
 type PullSecret struct {
@@ -39,12 +40,17 @@ type PullSecret struct {
 	Password string
 }
 
-func NewWithAssociatedPullSecrets(rawImage string) WithAssociatedPullSecrets {
+func NewWithAssociatedPullSecrets(rawImage, containerName string) WithAssociatedPullSecrets {
 	name, tag := separateImageAndTag(rawImage)
 	return WithAssociatedPullSecrets{
-		imageName: name,
-		imageTag:  tag,
+		containerName: containerName,
+		imageName:     name,
+		imageTag:      tag,
 	}
+}
+
+func (i *WithAssociatedPullSecrets) GetContainerName() string {
+	return i.containerName
 }
 
 func (i *WithAssociatedPullSecrets) GetName() string {

@@ -27,6 +27,8 @@ package appv1
 import (
 	"errors"
 
+	"k8s.io/apimachinery/pkg/util/runtime"
+
 	"k8s.io/client-go/informers"
 
 	"github.com/fwiedmann/differ/pkg/event"
@@ -39,6 +41,7 @@ import (
 type StatefulSet struct {
 	observerConfig           observer.Config
 	kubernetesSharedInformer cache.SharedIndexInformer
+	stopChannel              chan struct{}
 }
 
 func NewStatefulSetObserver() *StatefulSet {
@@ -49,6 +52,7 @@ func (statefulSetObserver *StatefulSet) InitObserverWithKubernetesSharedInformer
 	factory := observer.InitNewKubernetesFactory(observerConfig)
 	statefulSetObserver.kubernetesSharedInformer = statefulSetObserver.initStatefulSetSharedInformer(factory)
 	statefulSetObserver.observerConfig = observerConfig
+	statefulSetObserver.stopChannel = make(chan struct{})
 }
 
 func (statefulSetObserver *StatefulSet) initStatefulSetSharedInformer(factory informers.SharedInformerFactory) cache.SharedIndexInformer {
@@ -62,7 +66,13 @@ func (statefulSetObserver *StatefulSet) initStatefulSetSharedInformer(factory in
 }
 
 func (statefulSetObserver *StatefulSet) StartObserving() {
-	statefulSetObserver.kubernetesSharedInformer.Run(statefulSetObserver.observerConfig.StopEventCommunicationChannel)
+	statefulSetObserver.kubernetesSharedInformer.Run(statefulSetObserver.stopChannel)
+}
+
+func (statefulSetObserver *StatefulSet) StopObserving() {
+	defer runtime.HandleCrash()
+	statefulSetObserver.stopChannel <- struct{}{}
+	close(statefulSetObserver.stopChannel)
 }
 
 func (statefulSetObserver *StatefulSet) onAdd(obj interface{}) {
@@ -82,7 +92,7 @@ func (statefulSetObserver *StatefulSet) sendObjectToEventReceiverType(obj interf
 	if err != nil {
 		statefulSetObserver.observerConfig.SendERRORToReceiver(err)
 	} else {
-		kubernetesResourceMetaInfo := event.NewKubernetesAPIObjectMetaInformation(apiVersion, statefulSteSetResourceType, statefulSet.Namespace, statefulSet.Name)
+		kubernetesResourceMetaInfo := event.NewKubernetesAPIObjectMetaInformation(statefulSet.GetUID(), apiVersion, statefulSteSetResourceType, statefulSet.Namespace, statefulSet.Name)
 		eventsToSend, err := statefulSetObserver.observerConfig.EventGenerator.GenerateEventsFromPodSpec(statefulSet.Spec.Template.Spec, kubernetesResourceMetaInfo)
 		if err != nil {
 			statefulSetObserver.observerConfig.SendERRORToReceiver(err)
@@ -93,9 +103,9 @@ func (statefulSetObserver *StatefulSet) sendObjectToEventReceiverType(obj interf
 }
 
 func (statefulSetObserver *StatefulSet) convertToResource(obj interface{}) (*v1.StatefulSet, error) {
-	staefulSet, ok := obj.(*v1.StatefulSet)
+	statefulSet, ok := obj.(*v1.StatefulSet)
 	if !ok {
 		return nil, errors.New("could not parse statefulSetObserver object")
 	}
-	return staefulSet, nil
+	return statefulSet, nil
 }

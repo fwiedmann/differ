@@ -27,6 +27,8 @@ package appv1
 import (
 	"errors"
 
+	"k8s.io/apimachinery/pkg/util/runtime"
+
 	"github.com/fwiedmann/differ/pkg/event"
 	"github.com/fwiedmann/differ/pkg/observer"
 	v1 "k8s.io/api/apps/v1"
@@ -37,6 +39,7 @@ import (
 type DaemonSet struct {
 	observerConfig           observer.Config
 	kubernetesSharedInformer cache.SharedIndexInformer
+	stopChannel              chan struct{}
 }
 
 func NewDaemonSetObserver() *DaemonSet {
@@ -47,6 +50,7 @@ func (daemonSetObserver *DaemonSet) InitObserverWithKubernetesSharedInformer(obs
 	factory := observer.InitNewKubernetesFactory(observerConfig)
 	daemonSetObserver.kubernetesSharedInformer = daemonSetObserver.initDaemonSettSharedInformer(factory)
 	daemonSetObserver.observerConfig = observerConfig
+	daemonSetObserver.stopChannel = make(chan struct{})
 }
 
 func (daemonSetObserver *DaemonSet) initDaemonSettSharedInformer(factory informers.SharedInformerFactory) cache.SharedIndexInformer {
@@ -60,7 +64,13 @@ func (daemonSetObserver *DaemonSet) initDaemonSettSharedInformer(factory informe
 }
 
 func (daemonSetObserver *DaemonSet) StartObserving() {
-	daemonSetObserver.kubernetesSharedInformer.Run(daemonSetObserver.observerConfig.StopEventCommunicationChannel)
+	daemonSetObserver.kubernetesSharedInformer.Run(daemonSetObserver.stopChannel)
+}
+
+func (daemonSetObserver *DaemonSet) StopObserving() {
+	defer runtime.HandleCrash()
+	daemonSetObserver.stopChannel <- struct{}{}
+	close(daemonSetObserver.stopChannel)
 }
 
 func (daemonSetObserver *DaemonSet) onAdd(obj interface{}) {
@@ -80,7 +90,7 @@ func (daemonSetObserver *DaemonSet) sendObjectToEventReceiverType(obj interface{
 	if err != nil {
 		daemonSetObserver.observerConfig.SendERRORToReceiver(err)
 	} else {
-		kubernetesResourceMetaInfo := event.NewKubernetesAPIObjectMetaInformation(apiVersion, daemonSetResourceType, daemonSet.Namespace, daemonSet.Name)
+		kubernetesResourceMetaInfo := event.NewKubernetesAPIObjectMetaInformation(daemonSet.GetUID(), apiVersion, daemonSetResourceType, daemonSet.Namespace, daemonSet.Name)
 		eventsToSend, err := daemonSetObserver.observerConfig.EventGenerator.GenerateEventsFromPodSpec(daemonSet.Spec.Template.Spec, kubernetesResourceMetaInfo)
 		if err != nil {
 			daemonSetObserver.observerConfig.SendERRORToReceiver(err)

@@ -26,9 +26,11 @@ package event
 
 import (
 	"github.com/fwiedmann/differ/pkg/image"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type KubernetesAPIObjectMetaInformation struct {
+	UID          string
 	APIVersion   string
 	ResourceType string
 	Namespace    string
@@ -43,17 +45,15 @@ type ObservedKubernetesAPIObjectEvent struct {
 
 type KubernetesEventCommunicationChannels struct {
 	addEventChannel, deleteEventChannel, updateEventChannel chan ObservedKubernetesAPIObjectEvent
-	StopEventCommunicationChannel                           chan struct{}
 	errorEventChannel                                       chan error
 }
 
-func InitCommunicationChannels() KubernetesEventCommunicationChannels {
+func InitCommunicationChannels(observerCount int) KubernetesEventCommunicationChannels {
 	return KubernetesEventCommunicationChannels{
-		addEventChannel:               make(chan ObservedKubernetesAPIObjectEvent),
-		deleteEventChannel:            make(chan ObservedKubernetesAPIObjectEvent),
-		updateEventChannel:            make(chan ObservedKubernetesAPIObjectEvent),
-		StopEventCommunicationChannel: make(chan struct{}),
-		errorEventChannel:             make(chan error),
+		addEventChannel:    make(chan ObservedKubernetesAPIObjectEvent, observerCount),
+		deleteEventChannel: make(chan ObservedKubernetesAPIObjectEvent, observerCount),
+		updateEventChannel: make(chan ObservedKubernetesAPIObjectEvent, observerCount),
+		errorEventChannel:  make(chan error, observerCount),
 	}
 }
 func (eventChannels KubernetesEventCommunicationChannels) GetADDReceiverEventChanel() <-chan ObservedKubernetesAPIObjectEvent {
@@ -93,8 +93,9 @@ func sendEvents(receiver chan<- ObservedKubernetesAPIObjectEvent, events []Obser
 	}
 }
 
-func NewKubernetesAPIObjectMetaInformation(apiVersion, observedAPIResource, namespace, resourceName string) KubernetesAPIObjectMetaInformation {
+func NewKubernetesAPIObjectMetaInformation(uid types.UID, apiVersion, observedAPIResource, namespace, resourceName string) KubernetesAPIObjectMetaInformation {
 	return KubernetesAPIObjectMetaInformation{
+		UID:          string(uid),
 		APIVersion:   apiVersion,
 		ResourceType: observedAPIResource,
 		Namespace:    namespace,

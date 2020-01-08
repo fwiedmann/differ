@@ -58,7 +58,7 @@ var rootCmd = cobra.Command{
 			return err
 		}
 
-		communicationChannels := event.InitCommunicationChannels()
+		communicationChannels := event.InitCommunicationChannels(len(observers))
 		observerConfig := observer.Config{
 			NamespaceToScrape:                    conf.Namespace,
 			KubernetesAPIClient:                  kubernetesAPIClient,
@@ -67,14 +67,19 @@ var rootCmd = cobra.Command{
 		}
 
 		initAllObservers(observerConfig)
-		c := controller.NewDifferController(communicationChannels, observers...)
+		controllerErrorChan := make(chan error)
+
+		c := controller.NewDifferController(communicationChannels, controllerErrorChan, observers...)
 
 		go func() {
 			if err := metrics.StartMetricsEndpoint(conf.Metrics); err != nil {
 				panic(err)
 			}
 		}()
-		return c.StartController()
+
+		go c.StartController()
+
+		return <-controllerErrorChan
 	},
 }
 

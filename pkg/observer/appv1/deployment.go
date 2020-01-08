@@ -27,6 +27,7 @@ package appv1
 import (
 	"errors"
 
+	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/informers"
 
 	"github.com/fwiedmann/differ/pkg/event"
@@ -39,6 +40,7 @@ import (
 type Deployment struct {
 	observerConfig           observer.Config
 	kubernetesSharedInformer cache.SharedIndexInformer
+	stopChannel              chan struct{}
 }
 
 func NewDeploymentObserver() *Deployment {
@@ -49,6 +51,8 @@ func (deploymentObserver *Deployment) InitObserverWithKubernetesSharedInformer(o
 	factory := observer.InitNewKubernetesFactory(observerConfig)
 	deploymentObserver.kubernetesSharedInformer = deploymentObserver.initDeploymentSharedInformer(factory)
 	deploymentObserver.observerConfig = observerConfig
+	deploymentObserver.stopChannel = make(chan struct{})
+
 }
 
 func (deploymentObserver *Deployment) initDeploymentSharedInformer(factory informers.SharedInformerFactory) cache.SharedIndexInformer {
@@ -62,7 +66,14 @@ func (deploymentObserver *Deployment) initDeploymentSharedInformer(factory infor
 }
 
 func (deploymentObserver *Deployment) StartObserving() {
-	deploymentObserver.kubernetesSharedInformer.Run(deploymentObserver.observerConfig.StopEventCommunicationChannel)
+	deploymentObserver.kubernetesSharedInformer.Run(deploymentObserver.stopChannel)
+}
+
+func (deploymentObserver *Deployment) StopObserving() {
+	defer runtime.HandleCrash()
+	deploymentObserver.stopChannel <- struct{}{}
+	close(deploymentObserver.stopChannel)
+
 }
 
 func (deploymentObserver *Deployment) onAdd(obj interface{}) {
@@ -82,7 +93,7 @@ func (deploymentObserver *Deployment) sendObjectToEventReceiverType(obj interfac
 	if err != nil {
 		deploymentObserver.observerConfig.SendERRORToReceiver(err)
 	} else {
-		kubernetesResourceMetaInfo := event.NewKubernetesAPIObjectMetaInformation(apiVersion, deploymentResourceType, deployment.Namespace, deployment.Name)
+		kubernetesResourceMetaInfo := event.NewKubernetesAPIObjectMetaInformation(deployment.GetUID(), apiVersion, deploymentResourceType, deployment.Namespace, deployment.Name)
 		eventsToSend, err := deploymentObserver.observerConfig.EventGenerator.GenerateEventsFromPodSpec(deployment.Spec.Template.Spec, kubernetesResourceMetaInfo)
 		if err != nil {
 			deploymentObserver.observerConfig.SendERRORToReceiver(err)
@@ -97,5 +108,6 @@ func (deploymentObserver *Deployment) convertToResource(obj interface{}) (*v1.De
 	if !ok {
 		return nil, errors.New("could not parse deploymentObserver object")
 	}
+	deployment.GetUID()
 	return deployment, nil
 }
