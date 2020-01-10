@@ -38,14 +38,16 @@ type Generator struct {
 	WorkingNamespace    string
 }
 
+// NewGenerator instance which will handle the an kubernetes api object to events for the communication channels
 func NewGenerator(kubernetesAPIClient kubernetes.Interface, workingNamespace string) *Generator {
 	return &Generator{
 		KubernetesAPIClient: kubernetesAPIClient,
 		WorkingNamespace:    workingNamespace}
 }
 
+// GenerateEventsFromPodSpec will extract all containers from the podSpec, requests all given image pull secrets from the kubernetes API
+// and generate events for each container
 func (eventGenerator *Generator) GenerateEventsFromPodSpec(podSpec v1.PodSpec, kubernetesMetaInformation KubernetesAPIObjectMetaInformation) ([]ObservedKubernetesAPIObjectEvent, error) {
-
 	extractedImagesFromPodSpec := eventGenerator.extractImagesFromPodSpec(podSpec)
 	extractedPullSecretsFromPodSpec, err := eventGenerator.extractPullSecretsFromPodSpec(podSpec)
 

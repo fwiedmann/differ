@@ -22,9 +22,26 @@
  * SOFTWARE.
  */
 
-package appv1
+package event
 
-const apiVersion = "appV1"
-const deploymentResourceType = "Deployment"
-const daemonSetResourceType = "DaemonSet"
-const statefulSteSetResourceType = "StatefulSet"
+import "k8s.io/apimachinery/pkg/types"
+
+// KubernetesAPIObjectMetaInformation from the kubernetes API object
+type KubernetesAPIObjectMetaInformation struct {
+	UID          string
+	APIVersion   string
+	ResourceType string
+	Namespace    string
+	WorkloadName string
+}
+
+// NewKubernetesAPIObjectMetaInformation for given meta information
+func NewKubernetesAPIObjectMetaInformation(uid types.UID, apiVersion, observedAPIResource, namespace, resourceName string) KubernetesAPIObjectMetaInformation {
+	return KubernetesAPIObjectMetaInformation{
+		UID:          string(uid),
+		APIVersion:   apiVersion,
+		ResourceType: observedAPIResource,
+		Namespace:    namespace,
+		WorkloadName: resourceName,
+	}
+}

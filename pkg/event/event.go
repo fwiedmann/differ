@@ -26,16 +26,7 @@ package event
 
 import (
 	"github.com/fwiedmann/differ/pkg/image"
-	"k8s.io/apimachinery/pkg/types"
 )
-
-type KubernetesAPIObjectMetaInformation struct {
-	UID          string
-	APIVersion   string
-	ResourceType string
-	Namespace    string
-	WorkloadName string
-}
 
 // ObservedKubernetesAPIObjectEvent contains unique meta information from scraped resource types
 type ObservedKubernetesAPIObjectEvent struct {
@@ -43,11 +34,13 @@ type ObservedKubernetesAPIObjectEvent struct {
 	ImageWithPullSecrets image.WithAssociatedPullSecrets
 }
 
+// KubernetesEventCommunicationChannels for communication between differ controller and kubernetes api observers
 type KubernetesEventCommunicationChannels struct {
 	addEventChannel, deleteEventChannel, updateEventChannel chan ObservedKubernetesAPIObjectEvent
 	errorEventChannel                                       chan error
 }
 
+// InitCommunicationChannels with each channel of the size of the observer count
 func InitCommunicationChannels(observerCount int) KubernetesEventCommunicationChannels {
 	return KubernetesEventCommunicationChannels{
 		addEventChannel:    make(chan ObservedKubernetesAPIObjectEvent, observerCount),
@@ -56,33 +49,43 @@ func InitCommunicationChannels(observerCount int) KubernetesEventCommunicationCh
 		errorEventChannel:  make(chan error, observerCount),
 	}
 }
+
+// GetADDReceiverEventChanel return the event type ADD channel for the differ controller
 func (eventChannels KubernetesEventCommunicationChannels) GetADDReceiverEventChanel() <-chan ObservedKubernetesAPIObjectEvent {
 	return eventChannels.addEventChannel
 }
+
+// GetUPDATEReceiverEventChanel return the event type UPDATE channel for the differ controller
 func (eventChannels KubernetesEventCommunicationChannels) GetUPDATEReceiverEventChanel() <-chan ObservedKubernetesAPIObjectEvent {
 	return eventChannels.updateEventChannel
 }
 
+// GetDELETReceiverEventChanel return the event type DELETE channel for the differ controller
 func (eventChannels KubernetesEventCommunicationChannels) GetDELETReceiverEventChanel() <-chan ObservedKubernetesAPIObjectEvent {
 	return eventChannels.deleteEventChannel
 }
 
+// GetERRORReceiverEventChanel return the event type ERROR channel for the differ controller
 func (eventChannels KubernetesEventCommunicationChannels) GetERRORReceiverEventChanel() <-chan error {
 	return eventChannels.errorEventChannel
 }
 
+// SendADDEventsToReceiver of event type ADD for all containers of a kubernetes API object
 func (eventChannels KubernetesEventCommunicationChannels) SendADDEventsToReceiver(events []ObservedKubernetesAPIObjectEvent) {
 	sendEvents(eventChannels.addEventChannel, events)
 }
 
+// SendUPDATEEventsToReceiver of event type UPDATE for all containers of a kubernetes API object
 func (eventChannels KubernetesEventCommunicationChannels) SendUPDATEEventsToReceiver(events []ObservedKubernetesAPIObjectEvent) {
 	sendEvents(eventChannels.updateEventChannel, events)
 }
 
+// SendDELETEEventsToReceiver of event type DELETE for all containers of a kubernetes API object
 func (eventChannels KubernetesEventCommunicationChannels) SendDELETEEventsToReceiver(events []ObservedKubernetesAPIObjectEvent) {
 	sendEvents(eventChannels.deleteEventChannel, events)
 }
 
+// SendERRORToReceiver of event type ERROR when an observer occurred an error
 func (eventChannels KubernetesEventCommunicationChannels) SendERRORToReceiver(err error) {
 	eventChannels.errorEventChannel <- err
 }
@@ -90,15 +93,5 @@ func (eventChannels KubernetesEventCommunicationChannels) SendERRORToReceiver(er
 func sendEvents(receiver chan<- ObservedKubernetesAPIObjectEvent, events []ObservedKubernetesAPIObjectEvent) {
 	for _, eventToSend := range events {
 		receiver <- eventToSend
-	}
-}
-
-func NewKubernetesAPIObjectMetaInformation(uid types.UID, apiVersion, observedAPIResource, namespace, resourceName string) KubernetesAPIObjectMetaInformation {
-	return KubernetesAPIObjectMetaInformation{
-		UID:          string(uid),
-		APIVersion:   apiVersion,
-		ResourceType: observedAPIResource,
-		Namespace:    namespace,
-		WorkloadName: resourceName,
 	}
 }

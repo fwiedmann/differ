@@ -25,14 +25,12 @@
 package controller
 
 import (
-	"github.com/fwiedmann/differ/pkg/observer"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/fwiedmann/differ/pkg/event"
 )
 
 type Observer interface {
-	InitObserverWithKubernetesSharedInformer(observerConfig observer.Config)
 	StartObserving()
 	StopObserving()
 }
@@ -45,7 +43,7 @@ type DifferController struct {
 }
 
 // NewDifferController initialize the differ controller
-func NewDifferController(kubernetesEventChannels event.KubernetesEventCommunicationChannels, errorChan chan<- error, observers ...Observer) *DifferController {
+func NewDifferController(kubernetesEventChannels event.KubernetesEventCommunicationChannels, errorChan chan<- error, observers []Observer) *DifferController {
 	return &DifferController{
 		kubernetesEventChannels: kubernetesEventChannels,
 		observers:               observers,
@@ -56,7 +54,7 @@ func NewDifferController(kubernetesEventChannels event.KubernetesEventCommunicat
 // StartController starts differ controller loop
 func (c *DifferController) StartController() {
 	c.startAllObservers()
-
+differMonitorRoutine:
 	for {
 		select {
 		case createEvent := <-c.kubernetesEventChannels.GetADDReceiverEventChanel():
@@ -67,6 +65,7 @@ func (c *DifferController) StartController() {
 			log.Infof("update event: %+v", updateEvent)
 		case errorEvent := <-c.kubernetesEventChannels.GetERRORReceiverEventChanel():
 			c.handleError(errorEvent)
+			break differMonitorRoutine
 		}
 	}
 }
