@@ -34,61 +34,52 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+// EventGenerator for events send from a kubernetes shared index informer
 type EventGenerator interface {
 	GenerateEventsFromPodSpec(podSpec v1.PodSpec, kubernetesMetaInformation event.KubernetesAPIObjectMetaInformation) ([]event.ObservedKubernetesAPIObjectEvent, error)
 }
 
-type Config struct {
-	NamespaceToScrape   string
-	KubernetesAPIClient kubernetes.Interface
-	event.KubernetesEventCommunicationChannels
-	EventGenerator *event.Generator
+// Observer listens on a kubernetes api type events
+type Observer struct {
+	newKubernetesObjectHandler func(obj interface{}) (KubernetesObjectHandler, error)
+	observerConfig             Config
+	kubernetesSharedInformer   cache.SharedIndexInformer
+	stopChannel                chan struct{}
+	kubernetesObjectKind       string
+	kubernetesAPIVersion       string
 }
 
-// ObjectHandler extract required information from the kubernetes API type for the event
-type ObjectHandler interface {
+// KubernetesObjectHandler extract required information from the kubernetes API type for the event
+type KubernetesObjectHandler interface {
 	GetPodSpec() v1.PodSpec
 	GetNameOfObservedObject() string
 	GetUID() types.UID
 }
 
-// Worker contains a sharedIndexInformer for a kubernetes API type and the corresponding handler for an listen event
-type Worker interface {
-	NewHandlerForObject(obj interface{}) (ObjectHandler, error)
-	GetAPIVersion() string
-	GetObservedAPIObjectKind() string
-	GetSharedIndexInformer() cache.SharedIndexInformer
+// Config for an observer which is required for the communication
+type Config struct {
+	namespaceToScrape   string
+	kubernetesAPIClient kubernetes.Interface
+	event.KubernetesEventCommunicationChannels
+	eventGenerator *event.Generator
 }
 
-// NewObserver for the configured API of the worker
-func NewObserver(worker Worker, config Config) *Observer {
-	newObserver := Observer{
-		worker:         worker,
-		observerConfig: config,
+func NewObserverConfig(namespaceToScrape string, kubernetesAPIClient kubernetes.Interface, kubernetesEventCommunicationChannels event.KubernetesEventCommunicationChannels, eventGenerator *event.Generator) Config {
+	return Config{
+		namespaceToScrape:                    namespaceToScrape,
+		kubernetesAPIClient:                  kubernetesAPIClient,
+		KubernetesEventCommunicationChannels: kubernetesEventCommunicationChannels,
+		eventGenerator:                       eventGenerator,
 	}
 
-	newObserver.kubernetesSharedInformer = newObserver.initSharedIndexInformerWithHandleFunctions(worker.GetSharedIndexInformer())
-	newObserver.stopChannel = make(chan struct{})
-
-	return &newObserver
-
 }
 
-// Observer listens on a kubernetes api type events
-type Observer struct {
-	observerConfig           Config
-	worker                   Worker
-	kubernetesSharedInformer cache.SharedIndexInformer
-	stopChannel              chan struct{}
-}
-
-func (o *Observer) initSharedIndexInformerWithHandleFunctions(informer cache.SharedIndexInformer) cache.SharedIndexInformer {
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+func (o *Observer) initSharedIndexInformerWithHandleFunctions() {
+	o.kubernetesSharedInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    o.onAdd,
 		DeleteFunc: o.onDelete,
 		UpdateFunc: o.onUpdate,
 	})
-	return informer
 }
 
 // StartObserving of the kubernetes API type and send events to the event channels
@@ -116,20 +107,18 @@ func (o *Observer) onDelete(obj interface{}) {
 }
 
 func (o *Observer) sendObjectToEventReceiverType(obj interface{}, sender func(events []event.ObservedKubernetesAPIObjectEvent)) {
-	handledObject, err := o.worker.NewHandlerForObject(obj)
+	handledObject, err := o.newKubernetesObjectHandler(obj)
 	if err != nil {
 		o.observerConfig.SendERRORToReceiver(err)
 	} else {
 		uid := handledObject.GetUID()
 		objectName := handledObject.GetNameOfObservedObject()
-		o.worker.GetObservedAPIObjectKind()
-		apiVersion := o.worker.GetAPIVersion()
-		apiKind := o.worker.GetObservedAPIObjectKind()
-
-		namespace := o.observerConfig.NamespaceToScrape
+		apiVersion := o.kubernetesAPIVersion
+		apiKind := o.kubernetesObjectKind
+		namespace := o.observerConfig.namespaceToScrape
 
 		kubernetesResourceMetaInfo := event.NewKubernetesAPIObjectMetaInformation(uid, apiVersion, apiKind, namespace, objectName)
-		eventsToSend, err := o.observerConfig.EventGenerator.GenerateEventsFromPodSpec(handledObject.GetPodSpec(), kubernetesResourceMetaInfo)
+		eventsToSend, err := o.observerConfig.eventGenerator.GenerateEventsFromPodSpec(handledObject.GetPodSpec(), kubernetesResourceMetaInfo)
 		if err != nil {
 			o.observerConfig.SendERRORToReceiver(err)
 		} else {

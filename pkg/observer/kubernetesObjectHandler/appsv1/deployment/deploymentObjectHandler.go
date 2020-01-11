@@ -31,40 +31,43 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	v1 "k8s.io/api/apps/v1"
+	appsV1 "k8s.io/api/apps/v1"
 )
 
-func newDeploymentObjectHandler(obj interface{}) (Handler, error) {
-	daemonSet, err := convertToDeployment(obj)
+// NewHandler try's to convert the kubernetes API Object to an *appsV1.Deployment.
+// If conversion is not successful will return error.
+func NewHandler(kubernetesAPIObj interface{}) (Handler, error) {
+	convertedDaemonSet, err := convertToDeployment(kubernetesAPIObj)
 	if err != nil {
 		return Handler{}, err
 	}
-	return Handler{convertedDaemonSet: daemonSet}, nil
+	return Handler{convertedDeployment: convertedDaemonSet}, nil
 }
-func convertToDeployment(obj interface{}) (*v1.Deployment, error) {
-	deployment, ok := obj.(*v1.Deployment)
+
+func convertToDeployment(kubernetesAPIObj interface{}) (*appsV1.Deployment, error) {
+	convertedDeployment, ok := kubernetesAPIObj.(*appsV1.Deployment)
 	if !ok {
-		return nil, errors.New("could not parse Deployment object")
+		return nil, errors.New("could not parse  apps/appsV1 Deployment object")
 	}
-	return deployment, nil
+	return convertedDeployment, nil
 }
 
 // Handler for kubernetes appV1/Deployment
 type Handler struct {
-	convertedDaemonSet *v1.Deployment
+	convertedDeployment *appsV1.Deployment
 }
 
 // GetPodSpec from appV1/Deployment Object
 func (deploymentObjectHandler Handler) GetPodSpec() coreV1.PodSpec {
-	return deploymentObjectHandler.convertedDaemonSet.Spec.Template.Spec
+	return deploymentObjectHandler.convertedDeployment.Spec.Template.Spec
 }
 
 // GetNameOfObservedObject from appV1/Deployment Object
 func (deploymentObjectHandler Handler) GetNameOfObservedObject() string {
-	return deploymentObjectHandler.convertedDaemonSet.Name
+	return deploymentObjectHandler.convertedDeployment.Name
 }
 
 // GetUID from appV1/Deployment Object
 func (deploymentObjectHandler Handler) GetUID() types.UID {
-	return deploymentObjectHandler.convertedDaemonSet.GetUID()
+	return deploymentObjectHandler.convertedDeployment.GetUID()
 }

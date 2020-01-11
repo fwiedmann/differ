@@ -31,27 +31,30 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	v1 "k8s.io/api/apps/v1"
+	appsV1 "k8s.io/api/apps/v1"
 )
 
-func newStatefulSetObjectHandler(obj interface{}) (Handler, error) {
-	daemonSet, err := convertToStatefulSet(obj)
+// NewHandler try's to convert the kubernetes API Object to an *appsV1.StatefulSet.
+// If conversion is not successful will return error.
+func NewHandler(kubernetesAPIObj interface{}) (Handler, error) {
+	convertedStatefulSet, err := convertToStateFulSet(kubernetesAPIObj)
 	if err != nil {
 		return Handler{}, err
 	}
-	return Handler{convertedStatefulSet: daemonSet}, nil
+	return Handler{convertedStatefulSet: convertedStatefulSet}, nil
 }
-func convertToStatefulSet(obj interface{}) (*v1.StatefulSet, error) {
-	statefulSet, ok := obj.(*v1.StatefulSet)
+
+func convertToStateFulSet(kubernetesAPIObj interface{}) (*appsV1.StatefulSet, error) {
+	convertedStatefulSet, ok := kubernetesAPIObj.(*appsV1.StatefulSet)
 	if !ok {
-		return nil, errors.New("could not parse StatefulSet object")
+		return nil, errors.New("could not parse apps/appsV1 StatefulSet object")
 	}
-	return statefulSet, nil
+	return convertedStatefulSet, nil
 }
 
 // Handler for kubernetes appV1/StatefulSet
 type Handler struct {
-	convertedStatefulSet *v1.StatefulSet
+	convertedStatefulSet *appsV1.StatefulSet
 }
 
 // GetPodSpec from appV1/StatefulSet Object

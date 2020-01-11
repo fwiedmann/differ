@@ -22,38 +22,37 @@
  * SOFTWARE.
  */
 
-package observerWorkerFactory
+package observer
 
 import (
-	"github.com/fwiedmann/differ/pkg/observer"
-	"github.com/fwiedmann/differ/pkg/observer/observerWorkerFactory/appv1/daemonSet"
-	"github.com/fwiedmann/differ/pkg/observer/observerWorkerFactory/appv1/deployment"
-	"github.com/fwiedmann/differ/pkg/observer/observerWorkerFactory/appv1/statefulSet"
+	"errors"
+	"fmt"
+
 	"k8s.io/client-go/informers"
 )
 
 const (
-	AppV1Deployment  = ObserverWorkerType("APP_V1_DEPLOYMENT")
-	AppV1DaemonSet   = ObserverWorkerType("APP_V1_DAEMON_SET")
-	AppV1StatefulSet = ObserverWorkerType("APP_V1_STATEFUL_SET")
+	AppV1Deployment  = Kind("APP_V1_DEPLOYMENT")
+	AppV1DaemonSet   = Kind("APP_V1_DAEMON_SET")
+	AppV1StatefulSet = Kind("APP_V1_STATEFUL_SET")
 )
 
-type ObserverWorkerType string
+type Kind string
 
-// NewObserverWorker init an ObserverWorker for the given type. Returns nil if the given type does not exists
-func NewObserverWorker(observerType ObserverWorkerType, config observer.Config) observer.Worker {
-	kubernetesFactory := initNewKubernetesFactory(config)
-	switch observerType {
+// NewObserver init an observer for the given type with corresponding kubernetesObjectHandler.
+// If the observer kind could not be found will return error
+func NewObserver(observerKind Kind, observerConfig Config) (*Observer, error) {
+	switch observerKind {
 	case AppV1Deployment:
-		return deployment.InitObserverWorker(kubernetesFactory)
+		return newAppsV1DeploymentObserver(observerConfig), nil
 	case AppV1DaemonSet:
-		return daemonSet.InitObserverWorker(kubernetesFactory)
+		return newAppsV1DaemonSetObserver(observerConfig), nil
 	case AppV1StatefulSet:
-		return statefulSet.InitObserverWorker(kubernetesFactory)
+		return newAppsV1StatefulSetObserver(observerConfig), nil
 	}
-	return nil
+	return nil, errors.New(fmt.Sprintf("observer kind %s not found", observerKind))
 }
 
-func initNewKubernetesFactory(observerConfig observer.Config) informers.SharedInformerFactory {
-	return informers.NewSharedInformerFactoryWithOptions(observerConfig.KubernetesAPIClient, 0, informers.WithNamespace(observerConfig.NamespaceToScrape))
+func initNewKubernetesFactory(observerConfig Config) informers.SharedInformerFactory {
+	return informers.NewSharedInformerFactoryWithOptions(observerConfig.kubernetesAPIClient, 0, informers.WithNamespace(observerConfig.namespaceToScrape))
 }

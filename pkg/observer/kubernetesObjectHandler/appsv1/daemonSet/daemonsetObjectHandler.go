@@ -31,27 +31,29 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	v1 "k8s.io/api/apps/v1"
+	appsV1 "k8s.io/api/apps/v1"
 )
 
-func newDaemonSetHandler(obj interface{}) (Handler, error) {
-	daemonSet, err := convertToDaemonSet(obj)
+// NewHandler try's to convert the kubernetes API Object to an *appsV1.DaemonSet.
+// If conversion is not successful will return error.
+func NewHandler(kubernetesAPIObj interface{}) (Handler, error) {
+	convertedDaemonSet, err := convertToDaemonSet(kubernetesAPIObj)
 	if err != nil {
 		return Handler{}, err
 	}
-	return Handler{convertedDaemonSet: daemonSet}, nil
+	return Handler{convertedDaemonSet: convertedDaemonSet}, nil
 }
-func convertToDaemonSet(obj interface{}) (*v1.DaemonSet, error) {
-	daemonSet, ok := obj.(*v1.DaemonSet)
+func convertToDaemonSet(kubernetesAPIObj interface{}) (*appsV1.DaemonSet, error) {
+	convertedDaemonSet, ok := kubernetesAPIObj.(*appsV1.DaemonSet)
 	if !ok {
-		return nil, errors.New("could not parse DaemonSet object")
+		return nil, errors.New("could not parse apps/appsV1 DaemonSet object")
 	}
-	return daemonSet, nil
+	return convertedDaemonSet, nil
 }
 
 // Handler for kubernetes appV1/DaemonSet
 type Handler struct {
-	convertedDaemonSet *v1.DaemonSet
+	convertedDaemonSet *appsV1.DaemonSet
 }
 
 // GetPodSpec from appV1/DaemonSet Object

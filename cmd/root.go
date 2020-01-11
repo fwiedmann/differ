@@ -25,27 +25,25 @@
 package cmd
 
 import (
-	"errors"
-	"fmt"
-
 	"github.com/fwiedmann/differ/pkg/config"
 	"github.com/fwiedmann/differ/pkg/controller"
 	"github.com/fwiedmann/differ/pkg/event"
 	kubernetes_client "github.com/fwiedmann/differ/pkg/kubernetes-client"
 	"github.com/fwiedmann/differ/pkg/metrics"
 	"github.com/fwiedmann/differ/pkg/observer"
-	"github.com/fwiedmann/differ/pkg/observer/observerWorkerFactory"
 	"github.com/spf13/cobra"
 )
 
-var observerWorkersTypes []observerWorkerFactory.ObserverWorkerType
+var observerKindsToInit []observer.Kind
 
 func init() {
-	observerWorkersTypes = append(observerWorkersTypes, observerWorkerFactory.AppV1Deployment, observerWorkerFactory.AppV1StatefulSet, observerWorkerFactory.AppV1DaemonSet)
+	observerKindsToInit = append(observerKindsToInit, observer.AppV1Deployment, observer.AppV1DaemonSet, observer.AppV1StatefulSet)
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "./config.yaml", "Path to differ config file")
 	rootCmd.Flags().String("loglevel", "info", "Set loglevel. Default is info")
 	rootCmd.Flags().Bool("devmode", false, "Run differ from outside a cluster")
 }
+
+var configFile string
 
 var rootCmd = cobra.Command{
 	Use:          "differ",
@@ -68,13 +66,9 @@ var rootCmd = cobra.Command{
 			return err
 		}
 
-		communicationChannels := event.InitCommunicationChannels(len(observerWorkersTypes))
-		observerConfig := observer.Config{
-			NamespaceToScrape:                    conf.Namespace,
-			KubernetesAPIClient:                  kubernetesAPIClient,
-			KubernetesEventCommunicationChannels: communicationChannels,
-			EventGenerator:                       event.NewGenerator(kubernetesAPIClient, conf.Namespace),
-		}
+		communicationChannels := event.InitCommunicationChannels(len(observerKindsToInit))
+		eventGenerator := event.NewGenerator(kubernetesAPIClient, conf.Namespace)
+		observerConfig := observer.NewObserverConfig(conf.Namespace, kubernetesAPIClient, communicationChannels, eventGenerator)
 
 		op, err := initAllObservers(observerConfig)
 		if err != nil {
@@ -97,30 +91,16 @@ var rootCmd = cobra.Command{
 }
 
 func initAllObservers(observerConfig observer.Config) ([]controller.Observer, error) {
-	initializedObserverWorkers, err := initAllObserverWorkers(observerConfig)
-	if err != nil {
-		return nil, err
-	}
 	var initializedObservers []controller.Observer
-
-	for _, worker := range initializedObserverWorkers {
-		initializedObservers = append(initializedObservers, observer.NewObserver(worker, observerConfig))
+	for _, observerKindToInit := range observerKindsToInit {
+		initializedObserver, err := observer.NewObserver(observerKindToInit, observerConfig)
+		if err != nil {
+			return nil, err
+		}
+		initializedObservers = append(initializedObservers, initializedObserver)
 	}
 	return initializedObservers, nil
 }
-func initAllObserverWorkers(observerConfig observer.Config) ([]observer.Worker, error) {
-	var initializedWorkers []observer.Worker
-	for _, workerType := range observerWorkersTypes {
-		worker := observerWorkerFactory.NewObserverWorker(workerType, observerConfig)
-		if worker == nil {
-			return []observer.Worker{}, errors.New(fmt.Sprintf("Could not initialize ObserverWorkerType %s", workerType))
-		}
-		initializedWorkers = append(initializedWorkers, worker)
-	}
-	return initializedWorkers, nil
-}
-
-var configFile string
 
 // Execute executes the rootCmd
 func Execute(version string) error {
