@@ -21,8 +21,9 @@ jobs:
           export PATH=$PATH:$(go env GOPATH)/bin
           curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.18.0
           golangci-lint run ./...
-      # - name: Run tests
-      #   run: go test ./...
+
+      - name: Run tests
+         run: go test ./...
 
       - name: Init go-semantic-release
         run: |
