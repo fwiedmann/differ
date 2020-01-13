@@ -40,8 +40,8 @@ type KubernetesEventCommunicationChannels struct {
 	errorEventChannel                                       chan error
 }
 
-// InitCommunicationChannels with each channel of the size of the observer count
-func InitCommunicationChannels(observerCount int) KubernetesEventCommunicationChannels {
+// NewCommunicationChannels with each channel of the size of the observer count
+func NewCommunicationChannels(observerCount int) KubernetesEventCommunicationChannels {
 	return KubernetesEventCommunicationChannels{
 		addEventChannel:    make(chan ObservedKubernetesAPIObjectEvent, observerCount),
 		deleteEventChannel: make(chan ObservedKubernetesAPIObjectEvent, observerCount),

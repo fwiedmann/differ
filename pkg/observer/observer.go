@@ -74,14 +74,6 @@ func NewObserverConfig(namespaceToScrape string, kubernetesAPIClient kubernetes.
 
 }
 
-func (o *Observer) initSharedIndexInformerWithHandleFunctions() {
-	o.kubernetesSharedInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    o.onAdd,
-		DeleteFunc: o.onDelete,
-		UpdateFunc: o.onUpdate,
-	})
-}
-
 // StartObserving of the kubernetes API type and send events to the event channels
 func (o *Observer) StartObserving() {
 	o.kubernetesSharedInformer.Run(o.stopChannel)
@@ -92,6 +84,14 @@ func (o *Observer) StopObserving() {
 	defer runtime.HandleCrash()
 	o.stopChannel <- struct{}{}
 	close(o.stopChannel)
+}
+
+func (o *Observer) initSharedIndexInformerWithHandleFunctions() {
+	o.kubernetesSharedInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    o.onAdd,
+		DeleteFunc: o.onDelete,
+		UpdateFunc: o.onUpdate,
+	})
 }
 
 func (o *Observer) onAdd(obj interface{}) {
@@ -110,19 +110,20 @@ func (o *Observer) sendObjectToEventReceiverType(obj interface{}, sender func(ev
 	handledObject, err := o.newKubernetesObjectHandler(obj)
 	if err != nil {
 		o.observerConfig.SendERRORToReceiver(err)
-	} else {
-		uid := handledObject.GetUID()
-		objectName := handledObject.GetNameOfObservedObject()
-		apiVersion := o.kubernetesAPIVersion
-		apiKind := o.kubernetesObjectKind
-		namespace := o.observerConfig.namespaceToScrape
-
-		kubernetesResourceMetaInfo := event.NewKubernetesAPIObjectMetaInformation(uid, apiVersion, apiKind, namespace, objectName)
-		eventsToSend, err := o.observerConfig.eventGenerator.GenerateEventsFromPodSpec(handledObject.GetPodSpec(), kubernetesResourceMetaInfo)
-		if err != nil {
-			o.observerConfig.SendERRORToReceiver(err)
-		} else {
-			sender(eventsToSend)
-		}
+		return
 	}
+
+	uid := handledObject.GetUID()
+	objectName := handledObject.GetNameOfObservedObject()
+	apiVersion := o.kubernetesAPIVersion
+	apiKind := o.kubernetesObjectKind
+	namespace := o.observerConfig.namespaceToScrape
+
+	kubernetesResourceMetaInfo := event.NewKubernetesAPIObjectMetaInformation(uid, apiVersion, apiKind, namespace, objectName)
+	eventsToSend, err := o.observerConfig.eventGenerator.GenerateEventsFromPodSpec(handledObject.GetPodSpec(), kubernetesResourceMetaInfo)
+	if err != nil {
+		o.observerConfig.SendERRORToReceiver(err)
+		return
+	}
+	sender(eventsToSend)
 }

@@ -66,7 +66,7 @@ var rootCmd = cobra.Command{
 			return err
 		}
 
-		communicationChannels := event.InitCommunicationChannels(len(observerKindsToInit))
+		communicationChannels := event.NewCommunicationChannels(len(observerKindsToInit))
 		eventGenerator := event.NewGenerator(kubernetesAPIClient, conf.Namespace)
 		observerConfig := observer.NewObserverConfig(conf.Namespace, kubernetesAPIClient, communicationChannels, eventGenerator)
 
