@@ -61,8 +61,8 @@ type ControllerConfig struct {
 	Sleep       string          `yaml:"controllerSleep"`
 	Metrics     MetricsEndpoint `yaml:"metrics"`
 	LogLevel    string          `yaml:"loglevel"`
-	configPath  string          `ymaml:"-"`
-	ParsedSleep time.Duration   `ymaml:"-"`
+	configPath  string          `yaml:"-"`
+	ParsedSleep time.Duration   `yaml:"-"`
 	Version     string          `yaml:"-"`
 }
 

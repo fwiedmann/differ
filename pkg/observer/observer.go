@@ -113,6 +113,8 @@ func (o *Observer) sendObjectToEventReceiverType(obj interface{}, sender func(ev
 		return
 	}
 
+	// todo check if resorce contains differ annotation
+
 	uid := handledObject.GetUID()
 	objectName := handledObject.GetNameOfObservedObject()
 	apiVersion := o.kubernetesAPIVersion

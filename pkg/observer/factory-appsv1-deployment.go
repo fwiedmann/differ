@@ -38,6 +38,7 @@ func newAppsV1DeploymentObserver(config Config) *Observer {
 		observerConfig:             config,
 		newKubernetesObjectHandler: newDeploymentObjectHandler,
 	}
+
 	newObserver.initSharedIndexInformerWithHandleFunctions()
 	return newObserver
 }

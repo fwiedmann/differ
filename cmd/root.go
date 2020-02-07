@@ -25,12 +25,16 @@
 package cmd
 
 import (
+	"os"
+	"os/signal"
+
 	"github.com/fwiedmann/differ/pkg/config"
 	"github.com/fwiedmann/differ/pkg/controller"
 	"github.com/fwiedmann/differ/pkg/event"
 	kubernetes_client "github.com/fwiedmann/differ/pkg/kubernetes-client"
 	"github.com/fwiedmann/differ/pkg/metrics"
 	"github.com/fwiedmann/differ/pkg/observer"
+	"github.com/prometheus/common/log"
 	"github.com/spf13/cobra"
 )
 
@@ -83,10 +87,17 @@ var rootCmd = cobra.Command{
 				panic(err)
 			}
 		}()
-
+		osNotifyChan := initOSNotifyChan()
 		go c.StartController()
 
-		return <-controllerErrorChan
+		select {
+		case osSignal := <-osNotifyChan:
+			log.Warnf("received os %s signal, start  graceful shutdown of controller...", osSignal.String())
+			c.StopAllObservers()
+			return nil
+		case err := <-controllerErrorChan:
+			return err
+		}
 	},
 }
 
@@ -100,6 +111,12 @@ func initAllObservers(observerConfig observer.Config) ([]controller.Observer, er
 		initializedObservers = append(initializedObservers, initializedObserver)
 	}
 	return initializedObservers, nil
+}
+
+func initOSNotifyChan() chan os.Signal {
+	notifyChan := make(chan os.Signal, 0)
+	signal.Notify(notifyChan, os.Interrupt, os.Kill)
+	return notifyChan
 }
 
 // Execute executes the rootCmd

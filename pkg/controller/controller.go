@@ -72,7 +72,7 @@ differMonitorRoutine:
 
 func (c *DifferController) handleError(err error) {
 	log.Errorf("Gracefully shutdown controller...")
-	c.stopAllObservers()
+	c.StopAllObservers()
 	c.errChan <- err
 }
 
@@ -82,7 +82,7 @@ func (c *DifferController) startAllObservers() {
 	}
 }
 
-func (c *DifferController) stopAllObservers() {
+func (c *DifferController) StopAllObservers() {
 	for _, observerToStop := range c.observers {
 		observerToStop.StopObserving()
 	}
