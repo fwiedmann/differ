@@ -27,6 +27,7 @@ package cmd
 import (
 	"os"
 	"os/signal"
+	"syscall"
 
 	"github.com/fwiedmann/differ/pkg/config"
 	"github.com/fwiedmann/differ/pkg/controller"
@@ -113,9 +114,9 @@ func initAllObservers(observerConfig observer.Config) ([]controller.Observer, er
 	return initializedObservers, nil
 }
 
-func initOSNotifyChan() chan os.Signal {
+func initOSNotifyChan() <-chan os.Signal {
 	notifyChan := make(chan os.Signal, 0)
-	signal.Notify(notifyChan, os.Interrupt, os.Kill)
+	signal.Notify(notifyChan, syscall.SIGTERM, syscall.SIGINT, syscall.SIGKILL)
 	return notifyChan
 }
 
