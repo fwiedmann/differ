@@ -38,7 +38,7 @@ type Generator struct {
 	WorkingNamespace    string
 }
 
-// NewGenerator instance which will handle the an kubernetes api object to events for the communication channels
+// NewGenerator instance which will transform a Kubernetes api object to events for the communication channels
 func NewGenerator(kubernetesAPIClient kubernetes.Interface, workingNamespace string) *Generator {
 	return &Generator{
 		KubernetesAPIClient: kubernetesAPIClient,

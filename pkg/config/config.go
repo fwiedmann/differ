@@ -25,20 +25,14 @@
 package config
 
 import (
-	"fmt"
 	"io/ioutil"
 	"sync"
-	"time"
+
+	"github.com/go-playground/validator/v10"
 
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	log "github.com/sirupsen/logrus"
-
 	"gopkg.in/yaml.v2"
-)
-
-const (
-	// DifferAnnotation represents the required kubernetes manifest annotation to get scraped from differ
-	DifferAnnotation = "differ/active"
 )
 
 type MetricsEndpoint struct {
@@ -48,28 +42,25 @@ type MetricsEndpoint struct {
 
 // GitRemote struct describes remote config
 type GitRemote struct {
-	Provider       string `yaml:"provider"`
-	Repositoryname string `yaml:"reponame"`
-	Username       string `yaml:"username"`
+	Provider       string `yaml:"provider" validate:"required"`
+	Repositoryname string `yaml:"reponame" validate:"required"`
+	Username       string `yaml:"username" validate:"required"`
 	CustomURL      string `yaml:"customURL,omitempty"`
 }
 
 // ControllerConfig holds required controller configuration
 type ControllerConfig struct {
-	Namespace   string          `yaml:"namespace"`
-	GitRemotes  []GitRemote     `yaml:"remotes"`
-	Sleep       string          `yaml:"controllerSleep"`
-	Metrics     MetricsEndpoint `yaml:"metrics"`
-	LogLevel    string          `yaml:"loglevel"`
-	configPath  string          `yaml:"-"`
-	ParsedSleep time.Duration   `yaml:"-"`
-	Version     string          `yaml:"-"`
+	Namespace  string          `yaml:"namespace" validate:"required"`
+	GitRemotes []GitRemote     `yaml:"remotes,omitempty"`
+	Metrics    MetricsEndpoint `yaml:"metrics"  validate:"required"`
+	LogLevel   string          `yaml:"loglevel,omitempty"`
+	configPath string          `yaml:"-"`
+	Version    string          `yaml:"-"`
 }
 
 type Config struct {
 	config     *ControllerConfig
 	configLock sync.RWMutex
-	reload     bool
 	configFile string
 }
 
@@ -97,13 +88,12 @@ func (o *Config) ReloadConfig() error {
 	o.configLock.Lock()
 	defer o.configLock.Unlock()
 	log.Infof("Reloading config")
-	conf, err := initConfig(o.configFile)
+	newConf, err := initConfig(o.configFile)
 	if err != nil {
 		return err
 	}
-	o.config = conf
+	o.config = newConf
 
-	o.reload = true
 	return nil
 }
 
@@ -126,9 +116,11 @@ func initConfig(configPath string) (*ControllerConfig, error) {
 		return nil, err
 	}
 
-	if err = validateConfig(config); err != nil {
+	validate := validator.New()
+	if err := validate.Struct(config); err != nil {
 		return nil, err
 	}
+
 	if err = setLoglevel(config.LogLevel); err != nil {
 		return nil, err
 	}
@@ -138,33 +130,10 @@ func initConfig(configPath string) (*ControllerConfig, error) {
 
 }
 
-func validateConfig(c *ControllerConfig) error {
-	isValid := true
-	duration, err := time.ParseDuration(c.Sleep)
-	if err != nil {
-		log.Error(err)
-		isValid = false
-	}
-	c.ParsedSleep = duration
-
-	if c.LogLevel == "" {
-		c.LogLevel = "info"
-	}
-	if c.Metrics.Path == "" {
-		log.Errorf("Metrics Path can't be empty, please choose smth. like \"/metrics\" or \"/metrics\"")
-		isValid = false
-	}
-	if c.Metrics.Port == 0 {
-		log.Errorf("Metrics endpoint port can't be 0")
-		isValid = false
-	}
-	if !isValid {
-		return fmt.Errorf("configuration file \"%s\" is invalid. Please resolve errors", c.configPath)
-	}
-	return nil
-}
-
 func setLoglevel(level string) error {
+	if level == "" {
+		level = "info"
+	}
 	parsedLevel, err := log.ParseLevel(level)
 	if err != nil {
 		return err
@@ -176,12 +145,4 @@ func setLoglevel(level string) error {
 		HideKeys: true,
 	})
 	return nil
-}
-
-// ControllerSleep sleep for configured duration
-func (c *Config) ControllerSleep() {
-	log.Infof("Done, start sleeping for %s", c.config.Sleep)
-	time.Sleep(c.config.ParsedSleep)
-	// Todo: use select and time.After and empty chanel when update is required
-
 }

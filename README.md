@@ -24,6 +24,12 @@
 
 ## ToDo's
 
+###
+use gorilla/gin for all http endpoints -> create a reload endpoint
+use context for methods
+use signal to determine termination
+use validator for config
+
 ### add tests
 
 ### add support for scanning github repos

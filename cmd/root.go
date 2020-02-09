@@ -59,7 +59,6 @@ var rootCmd = cobra.Command{
 		if err != nil {
 			return err
 		}
-
 		conf := o.GetConfig()
 		isDevMode, err := cmd.Flags().GetBool("devmode")
 		if err != nil {

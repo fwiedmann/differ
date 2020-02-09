@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/antonfisher/nested-logrus-formatter v1.0.2
+	github.com/go-playground/validator/v10 v10.1.0
 	github.com/gogo/protobuf v1.3.0 // indirect
 	github.com/google/martian v2.1.0+incompatible
 	github.com/googleapis/gnostic v0.3.1 // indirect
