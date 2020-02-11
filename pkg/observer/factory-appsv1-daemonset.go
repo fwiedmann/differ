@@ -33,7 +33,6 @@ func newAppsV1DaemonSetObserver(config Config) *Observer {
 	newObserver := &Observer{
 		kubernetesObjectKind:       "DaemonSet",
 		kubernetesAPIVersion:       "apps/v1",
-		stopChannel:                make(chan struct{}),
 		kubernetesSharedInformer:   kubernetesFactory.Apps().V1().DaemonSets().Informer(),
 		observerConfig:             config,
 		newKubernetesObjectHandler: newDaemonSetObjectHandler,

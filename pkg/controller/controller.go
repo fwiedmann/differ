@@ -25,14 +25,15 @@
 package controller
 
 import (
+	"context"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/fwiedmann/differ/pkg/event"
 )
 
 type Observer interface {
-	StartObserving()
-	StopObserving()
+	StartObserving(ctx context.Context)
 }
 
 // DifferController types struct
@@ -52,8 +53,8 @@ func NewDifferController(kubernetesEventChannels event.KubernetesEventCommunicat
 }
 
 // StartController starts differ controller loop
-func (c *DifferController) StartController() {
-	c.startAllObservers()
+func (c *DifferController) StartController(ctx context.Context) {
+	c.startAllObservers(ctx)
 differMonitorRoutine:
 	for {
 		select {
@@ -64,26 +65,17 @@ differMonitorRoutine:
 		case updateEvent := <-c.kubernetesEventChannels.GetUPDATEReceiverEventChanel():
 			log.Infof("update event: %+v", updateEvent)
 		case errorEvent := <-c.kubernetesEventChannels.GetERRORReceiverEventChanel():
-			c.handleError(errorEvent)
+			log.Errorf("%s", errorEvent)
+			break differMonitorRoutine
+		case <-ctx.Done():
 			break differMonitorRoutine
 		}
+
 	}
 }
 
-func (c *DifferController) handleError(err error) {
-	log.Errorf("Gracefully shutdown controller...")
-	c.StopAllObservers()
-	c.errChan <- err
-}
-
-func (c *DifferController) startAllObservers() {
+func (c *DifferController) startAllObservers(ctx context.Context) {
 	for _, o := range c.observers {
-		go o.StartObserving()
-	}
-}
-
-func (c *DifferController) StopAllObservers() {
-	for _, observerToStop := range c.observers {
-		observerToStop.StopObserving()
+		go o.StartObserving(ctx)
 	}
 }

@@ -33,7 +33,6 @@ func newAppsV1DeploymentObserver(config Config) *Observer {
 	newObserver := &Observer{
 		kubernetesObjectKind:       "Deployment",
 		kubernetesAPIVersion:       "apps/v1",
-		stopChannel:                make(chan struct{}),
 		kubernetesSharedInformer:   kubernetesFactory.Apps().V1().Deployments().Informer(),
 		observerConfig:             config,
 		newKubernetesObjectHandler: newDeploymentObjectHandler,

@@ -25,6 +25,7 @@
 package cmd
 
 import (
+	"context"
 	"os"
 	"os/signal"
 	"syscall"
@@ -88,14 +89,16 @@ var rootCmd = cobra.Command{
 			}
 		}()
 		osNotifyChan := initOSNotifyChan()
-		go c.StartController()
+		ctx, cancel := context.WithCancel(context.Background())
+		go c.StartController(ctx)
 
 		select {
 		case osSignal := <-osNotifyChan:
 			log.Warnf("received os %s signal, start  graceful shutdown of controller...", osSignal.String())
-			c.StopAllObservers()
+			cancel()
 			return nil
 		case err := <-controllerErrorChan:
+			cancel()
 			return err
 		}
 	},

@@ -25,11 +25,12 @@
 package observer
 
 import (
+	"context"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/fwiedmann/differ/pkg/event"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
@@ -44,7 +45,6 @@ type Observer struct {
 	newKubernetesObjectHandler func(obj interface{}) (KubernetesObjectHandler, error)
 	observerConfig             Config
 	kubernetesSharedInformer   cache.SharedIndexInformer
-	stopChannel                chan struct{}
 	kubernetesObjectKind       string
 	kubernetesAPIVersion       string
 }
@@ -75,15 +75,15 @@ func NewObserverConfig(namespaceToScrape string, kubernetesAPIClient kubernetes.
 }
 
 // StartObserving of the kubernetes API type and send events to the event channels
-func (o *Observer) StartObserving() {
-	o.kubernetesSharedInformer.Run(o.stopChannel)
-}
+func (o *Observer) StartObserving(ctx context.Context) {
+	stopChan := make(chan struct{})
+	go o.kubernetesSharedInformer.Run(stopChan)
 
-// StopObserving of the kubernetes API type
-func (o *Observer) StopObserving() {
-	defer runtime.HandleCrash()
-	o.stopChannel <- struct{}{}
-	close(o.stopChannel)
+	observerCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	<-observerCtx.Done()
+	stopChan <- struct{}{}
 }
 
 func (o *Observer) initSharedIndexInformerWithHandleFunctions() {
@@ -112,8 +112,6 @@ func (o *Observer) sendObjectToEventReceiverType(obj interface{}, sender func(ev
 		o.observerConfig.SendERRORToReceiver(err)
 		return
 	}
-
-	// todo check if resorce contains differ annotation
 
 	uid := handledObject.GetUID()
 	objectName := handledObject.GetNameOfObservedObject()

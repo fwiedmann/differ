@@ -33,7 +33,6 @@ func newAppsV1StatefulSetObserver(config Config) *Observer {
 	newObserver := &Observer{
 		kubernetesObjectKind:       "StatefulSet",
 		kubernetesAPIVersion:       "apps/v1",
-		stopChannel:                make(chan struct{}),
 		kubernetesSharedInformer:   kubernetesFactory.Apps().V1().StatefulSets().Informer(),
 		observerConfig:             config,
 		newKubernetesObjectHandler: newStatefulSetObjectHandler,
