@@ -25,6 +25,7 @@
 package observer
 
 import (
+	"context"
 	"reflect"
 	"testing"
 	"time"
@@ -113,38 +114,10 @@ func TestObserver_StartObserving(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			go tt.testObserver.StartObserving()
+			ctx, cancel := context.WithCancel(context.Background())
+			go tt.testObserver.StartObserving(ctx)
 			time.Sleep(time.Second * 2)
-			tt.testObserver.StopObserving()
-		})
-	}
-}
-
-func TestObserver_StopObserving(t *testing.T) {
-	validTestObserverConfig := newFakeObserverConfig()
-	validObserver, err := NewObserver(AppV1Deployment, validTestObserverConfig)
-	if err != nil {
-		t.Fatalf("NewObserver() failed for StartObserving()")
-	}
-
-	tests := []struct {
-		name         string
-		testObserver *Observer
-	}{
-		{
-			name:         "WithValidObserver",
-			testObserver: validObserver,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			go tt.testObserver.StartObserving()
-			time.Sleep(time.Second * 2)
-			tt.testObserver.StopObserving()
-
-			if _, channelIsOpen := <-tt.testObserver.stopChannel; channelIsOpen {
-				t.Fatalf("StopObserving() did not close the stop chan")
-			}
+			cancel()
 		})
 	}
 }
