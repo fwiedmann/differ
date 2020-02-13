@@ -65,6 +65,11 @@ func (i *WithAssociatedPullSecrets) GetPullSecrets() []PullSecret {
 	return i.pullSecrets
 }
 
+func (i *WithAssociatedPullSecrets) GetRegistryURL() string {
+	separatedURLAndImage := strings.Split(i.containerName, "/")
+	return separatedURLAndImage[0]
+}
+
 func (i *WithAssociatedPullSecrets) AppendImagePullSecretsWhichBelongsToImage(pullSecrets map[string][]PullSecret) {
 	for registryName, secrets := range pullSecrets {
 		if imageBelongsToRegistry(i.GetName(), registryName) {

@@ -27,6 +27,8 @@ package controller
 import (
 	"context"
 
+	"github.com/fwiedmann/differ/pkg/registry"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/fwiedmann/differ/pkg/event"
@@ -55,23 +57,42 @@ func NewDifferController(kubernetesEventChannels event.KubernetesEventCommunicat
 // StartController starts differ controller loop
 func (c *DifferController) StartController(ctx context.Context) {
 	c.startAllObservers(ctx)
-differMonitorRoutine:
-	for {
-		select {
-		case createEvent := <-c.kubernetesEventChannels.GetADDReceiverEventChanel():
-			log.Infof("create event: %+v", createEvent.ImageWithPullSecrets)
-		case deleteEvent := <-c.kubernetesEventChannels.GetDELETReceiverEventChanel():
-			log.Infof("delete event: %+v", deleteEvent)
-		case updateEvent := <-c.kubernetesEventChannels.GetUPDATEReceiverEventChanel():
-			log.Infof("update event: %+v", updateEvent)
-		case errorEvent := <-c.kubernetesEventChannels.GetERRORReceiverEventChanel():
-			log.Errorf("%s", errorEvent)
-			break differMonitorRoutine
-		case <-ctx.Done():
-			break differMonitorRoutine
-		}
 
-	}
+	r := registry.NewRegistriesStore(make(chan struct{}, 0))
+	go func(ctx context.Context) {
+		eventCtx, cancel := context.WithCancel(ctx)
+	differEventMonitorRoutine:
+		for {
+			select {
+			case createEvent := <-c.kubernetesEventChannels.GetADDReceiverEventChanel():
+				log.Infof("create event: %+v", createEvent.ImageWithPullSecrets)
+				r.AddImage(eventCtx, createEvent)
+			case deleteEvent := <-c.kubernetesEventChannels.GetDELETReceiverEventChanel():
+				log.Infof("delete event: %+v", deleteEvent)
+				r.DeleteImage(deleteEvent)
+			case updateEvent := <-c.kubernetesEventChannels.GetUPDATEReceiverEventChanel():
+				log.Infof("update event: %+v", updateEvent)
+				r.UpdateImage(eventCtx, updateEvent)
+			case errorEvent := <-c.kubernetesEventChannels.GetERRORReceiverEventChanel():
+				log.Errorf("%s", errorEvent)
+				break differEventMonitorRoutine
+			case <-eventCtx.Done():
+				cancel()
+				break differEventMonitorRoutine
+			}
+		}
+	}(ctx)
+
+	go func(ctx context.Context) {
+		infoCtx, cancel := context.WithCancel(ctx)
+	differImageEventMonitorRoutine:
+		select {
+		// ToDo receive info from registry worker
+		case <-infoCtx.Done():
+			cancel()
+			break differImageEventMonitorRoutine
+		}
+	}(ctx)
 }
 
 func (c *DifferController) startAllObservers(ctx context.Context) {

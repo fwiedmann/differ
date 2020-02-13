@@ -25,6 +25,8 @@
 package event
 
 import (
+	"fmt"
+
 	"github.com/fwiedmann/differ/pkg/image"
 )
 
@@ -32,6 +34,10 @@ import (
 type ObservedKubernetesAPIObjectEvent struct {
 	MetaInformation      KubernetesAPIObjectMetaInformation
 	ImageWithPullSecrets image.WithAssociatedPullSecrets
+}
+
+func (o ObservedKubernetesAPIObjectEvent) GetUID() string {
+	return fmt.Sprintf("%s_%s_%s_%s_%s_%s", o.MetaInformation.Namespace, o.MetaInformation.APIVersion, o.MetaInformation.UID, o.MetaInformation.WorkloadName, o.MetaInformation.ResourceType, o.ImageWithPullSecrets.GetContainerName())
 }
 
 // KubernetesEventCommunicationChannels for communication between differ controller and kubernetes api observers

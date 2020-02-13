@@ -84,6 +84,7 @@ func (o *Observer) StartObserving(ctx context.Context) {
 
 	<-observerCtx.Done()
 	stopChan <- struct{}{}
+	close(stopChan)
 }
 
 func (o *Observer) initSharedIndexInformerWithHandleFunctions() {

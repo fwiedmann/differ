@@ -36,7 +36,7 @@ import (
 	kubernetes_client "github.com/fwiedmann/differ/pkg/kubernetes-client"
 	"github.com/fwiedmann/differ/pkg/metrics"
 	"github.com/fwiedmann/differ/pkg/observer"
-	"github.com/prometheus/common/log"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 

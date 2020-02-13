@@ -25,7 +25,7 @@ cluster_load_image:
 	kind load docker-image differ:dev --name $(clustername)
 
 cluster_deploy_testworkload:
-	kubectl delete -f local-dev/k8s; echo
+	kubectl delete -f local-dev/k8s/test-workload; echo
 	kubectl delete secret demo; echo
 	kubectl create secret docker-registry demo \
 	  --docker-server=$$DOCKER_REGISTRY_SERVER \
