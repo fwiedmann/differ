@@ -51,8 +51,8 @@ type GitRemote struct {
 // ControllerConfig holds required controller configuration
 type ControllerConfig struct {
 	Namespace  string          `yaml:"namespace" validate:"required"`
-	GitRemotes []GitRemote     `yaml:"remotes,omitempty"`
-	Metrics    MetricsEndpoint `yaml:"metrics"  validate:"required"`
+	GitRemotes []GitRemote     `yaml:"remotes,omitempty" validate:"dive,required"`
+	Metrics    MetricsEndpoint `yaml:"metrics"  validate:"required,dive,required"`
 	LogLevel   string          `yaml:"loglevel,omitempty"`
 	configPath string          `yaml:"-"`
 	Version    string          `yaml:"-"`
