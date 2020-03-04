@@ -25,6 +25,8 @@
 package image
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -95,9 +97,13 @@ func separateImageAndTag(rawImage string) (imageName string, imageTag string) {
 	if isDockerHubImage(separatedImage[0]) {
 		separatedImage[0] = "docker.io/" + separatedImage[0]
 	}
-
-	if hasTag(separatedImage) {
+	switch {
+	case hasPortAndTag(separatedImage):
+		return fmt.Sprintf("%s:%s", separatedImage[0], separatedImage[1]), separatedImage[2]
+	case hasOnlyTag(separatedImage):
 		return separatedImage[0], separatedImage[1]
+	case hasOnlyPort(separatedImage):
+		return fmt.Sprintf("%s:%s", separatedImage[0], separatedImage[1]), "latest"
 	}
 	return separatedImage[0], "latest"
 }
@@ -110,6 +116,24 @@ func isDockerHubImage(imageName string) bool {
 	return !strings.Contains(imageName, ".")
 }
 
-func hasTag(separatedImage []string) bool {
-	return len(separatedImage) == 2
+func hasOnlyTag(separatedImage []string) bool {
+	if len(separatedImage) != 2 {
+		return false
+	}
+	if _, err := strconv.Atoi(separatedImage[1]); err == nil {
+		return false
+	}
+	return true
+}
+func hasPortAndTag(separatedImage []string) bool {
+	return len(separatedImage) == 3
+}
+func hasOnlyPort(separatedImage []string) bool {
+	if len(separatedImage) != 2 {
+		return false
+	}
+	if _, err := strconv.Atoi(separatedImage[1]); err != nil {
+		return false
+	}
+	return true
 }
