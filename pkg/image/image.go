@@ -55,8 +55,22 @@ func (i *WithAssociatedPullSecrets) GetContainerName() string {
 	return i.containerName
 }
 
-func (i *WithAssociatedPullSecrets) GetName() string {
+func (i *WithAssociatedPullSecrets) GetNameWithRegistry() string {
 	return i.imageName
+}
+
+func (i *WithAssociatedPullSecrets) GetNameWithoutRegistry() string {
+	imageParts := strings.Split(i.imageName, "/")
+
+	var name string
+	for i, part := range imageParts[1:] {
+		if i == 0 {
+			name = fmt.Sprintf("%s", part)
+			continue
+		}
+		name = fmt.Sprintf("%s/%s", name, part)
+	}
+	return name
 }
 
 func (i *WithAssociatedPullSecrets) GetTag() string {
@@ -74,7 +88,7 @@ func (i *WithAssociatedPullSecrets) GetRegistryURL() string {
 
 func (i *WithAssociatedPullSecrets) AppendImagePullSecretsWhichBelongsToImage(pullSecrets map[string][]PullSecret) {
 	for registryName, secrets := range pullSecrets {
-		if imageBelongsToRegistry(i.GetName(), registryName) {
+		if imageBelongsToRegistry(i.GetNameWithRegistry(), registryName) {
 			i.appendPullSecrets(secrets)
 		}
 	}
@@ -125,9 +139,11 @@ func hasOnlyTag(separatedImage []string) bool {
 	}
 	return true
 }
+
 func hasPortAndTag(separatedImage []string) bool {
 	return len(separatedImage) == 3
 }
+
 func hasOnlyPort(separatedImage []string) bool {
 	if len(separatedImage) != 2 {
 		return false
