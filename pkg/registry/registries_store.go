@@ -33,13 +33,13 @@ import (
 )
 
 type Registries struct {
-	store        *sync.Map
-	informerChan chan<- struct{}
+	instances    *sync.Map
+	informerChan chan<- event.Tag
 }
 
-func NewRegistriesStore(informerChan chan<- struct{}) Registries {
+func NewRegistriesStore(informerChan chan<- event.Tag) Registries {
 	return Registries{
-		store:        &sync.Map{},
+		instances:    &sync.Map{},
 		informerChan: informerChan,
 	}
 }
@@ -47,9 +47,9 @@ func NewRegistriesStore(informerChan chan<- struct{}) Registries {
 func (rs Registries) AddImage(ctx context.Context, obj event.ObservedKubernetesAPIObjectEvent) {
 	registryURL := obj.ImageWithPullSecrets.GetRegistryURL()
 	if rs.registryIsNotInStoreYet(registryURL) {
-		rs.store.Store(registryURL, newRegistry(rs.informerChan))
+		rs.instances.Store(registryURL, newRegistry(rs.informerChan))
 	}
-	correspondingRegistryOfImage, found := rs.store.Load(registryURL)
+	correspondingRegistryOfImage, found := rs.instances.Load(registryURL)
 	if !found {
 		log.Errorf("tried to add image for object with uuid \"%s\" but corresponding registry \"%s\" does not exists", obj.GetUID(), obj.ImageWithPullSecrets.GetRegistryURL())
 		return
@@ -59,20 +59,15 @@ func (rs Registries) AddImage(ctx context.Context, obj event.ObservedKubernetesA
 }
 
 func (rs *Registries) registryIsNotInStoreYet(registryURL string) bool {
-	if _, found := rs.store.Load(registryURL); !found {
+	if _, found := rs.instances.Load(registryURL); !found {
 		return true
 	}
 	return false
 }
 
-func (rs *Registries) addNewRegistry(registryURL string) {
-
-	rs.store.Store(registryURL, nil)
-}
-
 func (rs *Registries) UpdateImage(ctx context.Context, obj event.ObservedKubernetesAPIObjectEvent) {
 	registryURL := obj.ImageWithPullSecrets.GetRegistryURL()
-	correspondingRegistryOfImage, found := rs.store.Load(registryURL)
+	correspondingRegistryOfImage, found := rs.instances.Load(registryURL)
 	if !found {
 		log.Errorf("tried to update image for object with uuid \"%s\" but corresponding registry \"%s\" does not exists", obj.GetUID(), obj.ImageWithPullSecrets.GetRegistryURL())
 		return
@@ -83,7 +78,7 @@ func (rs *Registries) UpdateImage(ctx context.Context, obj event.ObservedKuberne
 
 func (rs *Registries) DeleteImage(obj event.ObservedKubernetesAPIObjectEvent) {
 	registryURL := obj.ImageWithPullSecrets.GetRegistryURL()
-	correspondingRegistryOfImage, found := rs.store.Load(registryURL)
+	correspondingRegistryOfImage, found := rs.instances.Load(registryURL)
 	if !found {
 		log.Errorf("tried to delete image for object with uuid \"%s\" but corresponding registry \"%s\" does not exists", obj.GetUID(), obj.ImageWithPullSecrets.GetRegistryURL())
 		return

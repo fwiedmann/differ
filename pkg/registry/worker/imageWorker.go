@@ -28,14 +28,12 @@ import (
 	"context"
 	"sync"
 
-	log "github.com/sirupsen/logrus"
-
 	"go.uber.org/ratelimit"
 
 	"github.com/fwiedmann/differ/pkg/event"
 )
 
-func StartNewImageWorker(ctx context.Context, rateLimiter ratelimit.Limiter, info chan<- struct{}) *ImageWorker {
+func StartNewImageWorker(ctx context.Context, rateLimiter ratelimit.Limiter, info chan<- event.Tag) *ImageWorker {
 	newWorker := ImageWorker{
 		associatedKubernetesObjects: make(map[string]event.ObservedKubernetesAPIObjectEvent, 0),
 		mutex:                       sync.RWMutex{},
@@ -50,7 +48,7 @@ type ImageWorker struct {
 	associatedKubernetesObjects map[string]event.ObservedKubernetesAPIObjectEvent
 	latestTag                   string
 	mutex                       sync.RWMutex
-	informChan                  chan<- struct{}
+	informChan                  chan<- event.Tag
 	rateLimiter                 ratelimit.Limiter
 }
 
@@ -65,7 +63,7 @@ imageWorkerRoutine:
 		default:
 			iw.rateLimiter.Take()
 			iw.mutex.RLock()
-			log.Debugf("Images %+v", iw)
+			iw.informChan <- event.NewTag("latest", []event.ObservedKubernetesAPIObjectEvent{})
 			iw.mutex.RUnlock()
 		}
 	}

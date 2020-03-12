@@ -6,6 +6,7 @@ require (
 	github.com/antonfisher/nested-logrus-formatter v1.0.2
 	github.com/go-playground/validator/v10 v10.1.0
 	github.com/gogo/protobuf v1.3.0 // indirect
+	github.com/google/martian v2.1.0+incompatible
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/prometheus/client_golang v1.2.1
 	github.com/sirupsen/logrus v1.4.2

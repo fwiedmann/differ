@@ -42,6 +42,10 @@ type PullSecret struct {
 	Password string
 }
 
+func (ps PullSecret) IsEmpty() bool {
+	return ps.Username == "" || ps.Password == ""
+}
+
 func NewWithAssociatedPullSecrets(rawImage, containerName string) WithAssociatedPullSecrets {
 	name, tag := separateImageAndTag(rawImage)
 	return WithAssociatedPullSecrets{
@@ -109,7 +113,7 @@ func separateImageAndTag(rawImage string) (imageName string, imageTag string) {
 	separatedImage := splitImage(rawImage)
 
 	if isDockerHubImage(separatedImage[0]) {
-		separatedImage[0] = "docker.io/" + separatedImage[0]
+		separatedImage[0] = "registry-1.docker.io/" + separatedImage[0]
 	}
 	switch {
 	case hasPortAndTag(separatedImage):

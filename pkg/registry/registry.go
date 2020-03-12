@@ -37,7 +37,7 @@ import (
 	"github.com/fwiedmann/differ/pkg/event"
 )
 
-func newRegistry(informChan chan<- struct{}) *registry {
+func newRegistry(informChan chan<- event.Tag) *registry {
 	return &registry{
 		imageWorkers: make(map[string]*worker.ImageWorker, 0),
 		mutex:        sync.RWMutex{},
@@ -49,12 +49,12 @@ func newRegistry(informChan chan<- struct{}) *registry {
 type registry struct {
 	imageWorkers map[string]*worker.ImageWorker
 	mutex        sync.RWMutex
-	informChan   chan<- struct{}
+	informChan   chan<- event.Tag
 	rateLimiter  ratelimit.Limiter
 }
 
 func (r *registry) addOrUpdateImage(ctx context.Context, obj event.ObservedKubernetesAPIObjectEvent) {
-	imageName := obj.ImageWithPullSecrets.GetName()
+	imageName := obj.ImageWithPullSecrets.GetNameWithRegistry()
 	if r.imageIsNotStoredYet(imageName) {
 		r.createNewImageWorkerEntry(ctx, imageName)
 	}
@@ -85,7 +85,7 @@ func (r *registry) createNewImageWorkerEntry(ctx context.Context, imageName stri
 }
 
 func (r *registry) deleteImage(obj event.ObservedKubernetesAPIObjectEvent) {
-	imageName := obj.ImageWithPullSecrets.GetName()
+	imageName := obj.ImageWithPullSecrets.GetNameWithRegistry()
 	r.mutex.RLock()
 	correspondingImageWorkerForObject, found := r.imageWorkers[imageName]
 	r.mutex.RUnlock()

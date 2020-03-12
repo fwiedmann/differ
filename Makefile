@@ -35,6 +35,7 @@ cluster_deploy_testworkload:
 	kubectl apply -f local-dev/k8s/test-workload
 
 run:
+	kubectl delete deployment differ-deployment
 	kubectl apply -f local-dev/k8s
 run_dev:
 	./differ --devmode

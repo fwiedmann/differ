@@ -35,7 +35,7 @@ package registry
 
 	"github.com/fwiedmann/differ/pkg/metrics"
 
-	"github.com/fwiedmann/differ/pkg/store"
+	"github.com/fwiedmann/differ/pkg/instances"
 
 	httpClient "github.com/fwiedmann/differ/pkg/http"
 	log "github.com/sirupsen/logrus"
@@ -53,7 +53,7 @@ type Remote struct {
 	bearerToken  BearerToken
 	RemoteLogger *log.Entry
 	Image        string
-	auths        []store.ImagePullSecret
+	auths        []instances.ImagePullSecret
 }
 
 type BearerToken struct {
@@ -79,7 +79,7 @@ func NewRemoteStore() *Remotes {
 	}
 }
 
-func (r *Remotes) CreateOrUpdateRemote(image string, gatheredAuths []store.ImagePullSecret) error {
+func (r *Remotes) CreateOrUpdateRemote(image string, gatheredAuths []instances.ImagePullSecret) error {
 	r.m.Lock()
 	defer r.m.Unlock()
 
@@ -124,7 +124,7 @@ func NewError(remoteURL, errorMessage string) Error {
 }
 
 // NewRemote inits a new remote
-func newRemote(image string, gatheredAuths []store.ImagePullSecret) (*Remote, error) {
+func newRemote(image string, gatheredAuths []instances.ImagePullSecret) (*Remote, error) {
 	parsedURL, err := parseImageToURL(modifyIfDockerHubImage(image))
 	if err != nil {
 		return nil, NewError(image, fmt.Sprintf("Could no parse image to remote URL: %s", err.Error()))
@@ -194,7 +194,7 @@ func getAuthRealmURL(remoteURL *url.URL) (string, error) {
 	return realmURL, nil
 }
 
-func getBearerToken(authRealmURL string, authSecret store.ImagePullSecret) (BearerToken, error) {
+func getBearerToken(authRealmURL string, authSecret instances.ImagePullSecret) (BearerToken, error) {
 	var body []byte
 	var err error
 	var respCode int
@@ -245,7 +245,7 @@ func (r *Remote) GetTags() ([]string, error) {
 	if r.bearerToken.Token == "" {
 		// add empty auth for code reductions
 		if len(r.auths) == 0 {
-			r.auths = append(r.auths, store.ImagePullSecret{
+			r.auths = append(r.auths, instances.ImagePullSecret{
 				Username: "",
 				Password: "",
 			})
