@@ -37,9 +37,22 @@ type WithAssociatedPullSecrets struct {
 	pullSecrets   []PullSecret
 }
 
+func (i WithAssociatedPullSecrets) String() string {
+	return fmt.Sprintf("containerName: %s, imageName: %s, imageTag: %s, pullSecrets: %v", i.containerName, i.imageName, i.imageTag, i.pullSecrets)
+}
+
 type PullSecret struct {
 	Username string
 	Password string
+}
+
+func (ps PullSecret) String() string {
+	var stars string
+
+	for i := 0; i < len(ps.Password); i++ {
+		stars += "*"
+	}
+	return fmt.Sprintf("username: %s, password: %s", ps.Username, stars)
 }
 
 func (ps PullSecret) IsEmpty() bool {

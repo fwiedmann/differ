@@ -62,13 +62,13 @@ differEventMonitorRoutine:
 	for {
 		select {
 		case createEvent := <-c.kubernetesEventChannels.GetADDReceiverEventChanel():
-			log.Infof("create event: %+v", createEvent.ImageWithPullSecrets)
+			log.Infof("create event: %s", createEvent)
 			rs.AddImage(eventCtx, createEvent)
 		case deleteEvent := <-c.kubernetesEventChannels.GetDELETReceiverEventChanel():
-			log.Infof("delete event: %+v", deleteEvent)
+			log.Infof("delete event: %s", deleteEvent)
 			rs.DeleteImage(deleteEvent)
 		case updateEvent := <-c.kubernetesEventChannels.GetUPDATEReceiverEventChanel():
-			log.Infof("update event: %+v", updateEvent)
+			log.Infof("update event: %s", updateEvent)
 			rs.UpdateImage(eventCtx, updateEvent)
 		case errorEvent := <-c.kubernetesEventChannels.GetERRORReceiverEventChanel():
 			log.Errorf("%s", errorEvent)

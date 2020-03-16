@@ -40,6 +40,10 @@ func (o ObservedKubernetesAPIObjectEvent) GetUID() string {
 	return fmt.Sprintf("%s_%s_%s_%s_%s_%s", o.MetaInformation.Namespace, o.MetaInformation.APIVersion, o.MetaInformation.UID, o.MetaInformation.WorkloadName, o.MetaInformation.ResourceType, o.ImageWithPullSecrets.GetContainerName())
 }
 
+func (o ObservedKubernetesAPIObjectEvent) String() string {
+	return fmt.Sprintf("MetaInformation: %s, ImageWithPullSecrets: %s", o.MetaInformation, o.ImageWithPullSecrets)
+}
+
 // KubernetesEventCommunicationChannels for communication between differ controller and kubernetes api observers
 type KubernetesEventCommunicationChannels struct {
 	addEventChannel, deleteEventChannel, updateEventChannel chan ObservedKubernetesAPIObjectEvent

@@ -24,7 +24,11 @@
 
 package event
 
-import "k8s.io/apimachinery/pkg/types"
+import (
+	"fmt"
+
+	"k8s.io/apimachinery/pkg/types"
+)
 
 // KubernetesAPIObjectMetaInformation from the kubernetes API object
 type KubernetesAPIObjectMetaInformation struct {
@@ -33,6 +37,10 @@ type KubernetesAPIObjectMetaInformation struct {
 	ResourceType string
 	Namespace    string
 	WorkloadName string
+}
+
+func (k KubernetesAPIObjectMetaInformation) String() string {
+	return fmt.Sprintf("UID: %s, APIVersion: %s, ResourceType: %s, Namespace: %s, WorkloadName: %s", k.UID, k.APIVersion, k.ResourceType, k.Namespace, k.WorkloadName)
 }
 
 // NewKubernetesAPIObjectMetaInformation for given meta information
