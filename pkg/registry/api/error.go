@@ -22,35 +22,23 @@
  * SOFTWARE.
  */
 
-package appv1scraper
+package api
 
-import (
-	"github.com/fwiedmann/differ/pkg/kubernetes-scraper/util"
-	"github.com/fwiedmann/differ/pkg/opts"
-	"github.com/fwiedmann/differ/pkg/store"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-)
+import "fmt"
 
-// Deployment type struct
-type DaemonSet struct {
+type Error struct {
+	message string
+	Err     error
 }
 
-// GetWorkloadResources scrapes all appsV1 deployments
-func (d DaemonSet) GetWorkloadResources(c *kubernetes.Clientset, namespace string, resourceStore *store.Instance) error {
-	daemonSets, err := c.AppsV1().DaemonSets(namespace).List(v1.ListOptions{})
-	if err != nil {
-		return err
-	}
+func newAPIErrorF(err error, format string, a ...interface{}) Error {
+	return Error{Err: err, message: fmt.Sprintf(format, a...)}
+}
 
-	for _, daemonSet := range daemonSets.Items {
-		if _, ok := daemonSet.Annotations[opts.DifferAnnotation]; ok {
-			authSecrets, err := util.GetRegistryAuth(daemonSet.Spec.Template.Spec.ImagePullSecrets, c, namespace)
-			if err != nil {
-				return err
-			}
-			resourceStore.AddResource("appsV1", "DaemonSet", daemonSet.Namespace, daemonSet.Name, daemonSet.Spec.Template.Spec.Containers, authSecrets)
-		}
-	}
-	return nil
+func (e Error) Error() string {
+	return e.message
+}
+
+func (e *Error) Unwrap() error {
+	return e.Err
 }

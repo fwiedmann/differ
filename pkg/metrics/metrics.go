@@ -25,20 +25,15 @@
 package metrics
 
 import (
-	"fmt"
 	"strconv"
-	"strings"
 	"sync"
 
-	"github.com/fwiedmann/differ/pkg/opts"
-
-	"github.com/fwiedmann/differ/pkg/store"
+	"github.com/fwiedmann/differ/pkg/config"
 
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/common/log"
 )
 
 var (
@@ -125,6 +120,7 @@ func (c *dynamicCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
+/*
 // DeleteNotScrapedResources which are not scraped by the last scrape
 func DeleteNotScrapedResources(cache *store.Instance) {
 	m.Lock()
@@ -136,7 +132,6 @@ func DeleteNotScrapedResources(cache *store.Instance) {
 					tmpMetricID := fmt.Sprintf("%s%s%s%s%s%s", scrapedImage.ImageName, scrapedImage.ImageTag, scrapedImage.ResourceType, scrapedImage.WorkloadName, scrapedImage.APIVersion, scrapedImage.Namespace)
 
 					if strings.HasPrefix(metricID, tmpMetricID) {
-						log.Infof("GOT METRIC ID %s, tmep %s", metricID, tmpMetricID)
 						found = true
 					}
 				}
@@ -172,7 +167,7 @@ func DynamicMetricSetGaugeValue(metricName string, value float64, labels ...stri
 	}
 	m.Unlock()
 }
-
+*/
 var promRegistry = prometheus.NewRegistry()
 
 func init() {
@@ -180,7 +175,7 @@ func init() {
 }
 
 // StartMetricsEndpoint starts metrics endpoint
-func StartMetricsEndpoint(o opts.MetricsEndpoint) error {
+func StartMetricsEndpoint(o config.MetricsEndpoint) error {
 
 	server := http.NewServeMux()
 	server.Handle(o.Path, promhttp.HandlerFor(promRegistry, promhttp.HandlerOpts{}))

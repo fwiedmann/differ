@@ -22,36 +22,44 @@
  * SOFTWARE.
  */
 
-package appv1scraper
+package kubernetes_client
 
 import (
-	"github.com/fwiedmann/differ/pkg/kubernetes-scraper/util"
-	"github.com/fwiedmann/differ/pkg/opts"
-	"github.com/fwiedmann/differ/pkg/store"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"os"
+
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
-// Deployment type struct
-type Deployment struct {
+func InitKubernetesAPIClient(devMode bool) (kubernetes.Interface, error) {
+	var config *rest.Config
+	var err error
+	if devMode {
+		config, err = initFromKubeConfig()
+	} else {
+		config, err = initInCLusterConfig()
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if initializedClient, err := kubernetes.NewForConfig(config); err != nil {
+		return nil, err
+	} else {
+		return initializedClient, nil
+	}
 }
 
-// todo: implement watch method with chanels
-// GetWorkloadResources scrapes all appsV1 deployments
-func (d Deployment) GetWorkloadResources(c *kubernetes.Clientset, namespace string, resourceStore *store.Instance) error {
-	deployments, err := c.AppsV1().Deployments(namespace).List(v1.ListOptions{})
+func initFromKubeConfig() (*rest.Config, error) {
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return err
+		return nil, err
 	}
+	return clientcmd.BuildConfigFromFlags("", homeDir+"/.kube/config")
+}
 
-	for _, deployment := range deployments.Items {
-		if _, ok := deployment.Annotations[opts.DifferAnnotation]; ok {
-			authSecrets, err := util.GetRegistryAuth(deployment.Spec.Template.Spec.ImagePullSecrets, c, namespace)
-			if err != nil {
-				return err
-			}
-			resourceStore.AddResource("appsV1", "Deployment", deployment.Namespace, deployment.Name, deployment.Spec.Template.Spec.Containers, authSecrets)
-		}
-	}
-	return nil
+func initInCLusterConfig() (*rest.Config, error) {
+	return rest.InClusterConfig()
 }

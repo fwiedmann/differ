@@ -22,35 +22,25 @@
  * SOFTWARE.
  */
 
-package appv1scraper
+package observer
 
 import (
-	"github.com/fwiedmann/differ/pkg/kubernetes-scraper/util"
-	"github.com/fwiedmann/differ/pkg/opts"
-	"github.com/fwiedmann/differ/pkg/store"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	"github.com/fwiedmann/differ/pkg/observer/kubernetesObjectHandler/appsv1/deployment"
 )
 
-// Deployment type struct
-type StateFulSet struct {
+func newAppsV1DeploymentObserver(config Config) *Observer {
+	kubernetesFactory := initNewKubernetesFactory(config)
+	newObserver := &Observer{
+		kubernetesObjectKind:       "Deployment",
+		kubernetesAPIVersion:       "apps/v1",
+		kubernetesSharedInformer:   kubernetesFactory.Apps().V1().Deployments().Informer(),
+		observerConfig:             config,
+		newKubernetesObjectHandler: newDeploymentObjectHandler,
+	}
+
+	newObserver.initSharedIndexInformerWithHandleFunctions()
+	return newObserver
 }
-
-// GetWorkloadResources scrapes all appsV1 deployments
-func (d StateFulSet) GetWorkloadResources(c *kubernetes.Clientset, namespace string, resourceStore *store.Instance) error {
-	stateFulSets, err := c.AppsV1().StatefulSets(namespace).List(v1.ListOptions{})
-	if err != nil {
-		return err
-	}
-
-	for _, stateFulSet := range stateFulSets.Items {
-		if _, ok := stateFulSet.Annotations[opts.DifferAnnotation]; ok {
-			authSecrets, err := util.GetRegistryAuth(stateFulSet.Spec.Template.Spec.ImagePullSecrets, c, namespace)
-			if err != nil {
-				return err
-			}
-			resourceStore.AddResource("appsV1", "StatefulSet", stateFulSet.Namespace, stateFulSet.Name, stateFulSet.Spec.Template.Spec.Containers, authSecrets)
-		}
-	}
-	return nil
+func newDeploymentObjectHandler(obj interface{}) (KubernetesObjectHandler, error) {
+	return deployment.NewHandler(obj)
 }

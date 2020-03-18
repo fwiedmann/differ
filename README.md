@@ -22,6 +22,31 @@
 
 # WIP
 
+## ToDo's
+
+###
+use gorilla/gin for all http endpoints -> create a reload endpoint
+use context for methods
+use signal to determine termination
+use validator for config
+
+### add tests
+
+### add support for scanning github repos
+
+### refectoring
+
+- update all func and var names for clean code
+- refactor functions to do one simple job like the Run Method
+- use kubernetes watch method on resources to react on actions
+- run registry in own routine
+- reload config dynmaic like kubernetes
+
+
+## ref
+
+
+
 ## RED metics
 
 Rate
