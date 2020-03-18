@@ -99,7 +99,7 @@ func (i *WithAssociatedPullSecrets) GetPullSecrets() []PullSecret {
 }
 
 func (i *WithAssociatedPullSecrets) GetRegistryURL() string {
-	separatedURLAndImage := strings.Split(i.containerName, "/")
+	separatedURLAndImage := strings.Split(i.imageName, "/")
 	return separatedURLAndImage[0]
 }
 

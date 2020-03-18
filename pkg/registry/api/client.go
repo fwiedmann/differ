@@ -45,28 +45,31 @@ const (
 	dockerRegistryVersion  = "v2"
 )
 
-type httpClient interface {
+type HTTPClient interface {
 	MakeRequest(r *http.Request) (*http.Response, error)
 }
 
-type BearerToken struct {
+type bearerToken struct {
 	Token       string    `json:"token"`
 	AccessToken string    `json:"access_token"`
 	ExpiresIn   int       `json:"expires_in"`
 	IssuedAt    time.Time `json:"issued_at"`
 }
 
-type Client struct {
-	image       string
-	registryURL string
-	bearerToken string
-	http        httpClient
+type tagList struct {
+	Tags []string `json:"tags"`
 }
 
-func New(image, registryURL string) *Client {
+type Client struct {
+	image       image.WithAssociatedPullSecrets
+	bearerToken string
+	http        HTTPClient
+}
+
+func New(image image.WithAssociatedPullSecrets, c HTTPClient) *Client {
 	return &Client{
-		image:       image,
-		registryURL: registryURL,
+		image: image,
+		http:  c,
 	}
 }
 
@@ -77,8 +80,7 @@ func (c *Client) GetTagsForImage(ctx context.Context, secret image.PullSecret) (
 			return nil, err
 		}
 	}
-	// ToDo: implement get Tags
-	return c.getTag()
+	return c.getTag(ctx)
 }
 
 func (c *Client) getBearerToken(ctx context.Context, secret image.PullSecret) error {
@@ -97,23 +99,24 @@ func (c *Client) getBearerToken(ctx context.Context, secret image.PullSecret) er
 }
 
 func (c *Client) getRealmURLFromHeader(ctx context.Context) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.registryURL+"/"+dockerRegistryVersion, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+c.image.GetRegistryURL()+"/"+dockerRegistryVersion, nil)
 	if err != nil {
-		return "", newAPIErrorF(err, "registry/api error")
+		return "", newAPIErrorF(err, "registry/api error: %s", err)
 	}
 
 	resp, err := c.http.MakeRequest(req)
 	if err != nil {
-		return "", newAPIErrorF(err, "registry/api error")
+		return "", newAPIErrorF(err, "registry/api error: %s", err)
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusUnauthorized {
-		return "", newAPIErrorF(err, "registry/api error: invalid response code %d from %s registry when trying to get realm URL for bearer token for image %s. Registry does not follow the %s header standard. %d is required", resp.StatusCode, c.registryURL, c.image, httpAuthenticateHeader, http.StatusUnauthorized)
+		return "", newAPIErrorF(err, "registry/api error: invalid response code %d from %s registry when trying to get realm URL for bearer token for image %s. Registry does not follow the %s header standard. %d is required", resp.StatusCode, c.image.GetRegistryURL(), c.image.GetNameWithoutRegistry(), httpAuthenticateHeader, http.StatusUnauthorized)
 	}
 
 	respHeader := resp.Header.Get(httpAuthenticateHeader)
 	if respHeader == "" {
-		return "", newAPIErrorF(nil, "Header \"%s\" is empty for requested url \"%s\"", httpAuthenticateHeader, c.registryURL)
+		return "", newAPIErrorF(nil, "Header \"%s\" is empty for requested url \"%s\"", httpAuthenticateHeader, c.image.GetRegistryURL())
 	}
 
 	if !isValidHeader(bearerRealmRegex, respHeader) {
@@ -131,14 +134,13 @@ func (c *Client) getRealmURLFromHeader(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", realm, service, c.image), nil
+	return fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", realm, service, c.image.GetNameWithoutRegistry()), nil
 }
 
 func (c *Client) getBearerTokenFromRealm(ctx context.Context, realmURL string, secret image.PullSecret) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, realmURL, nil)
-
 	if err != nil {
-		return "", newAPIErrorF(err, "registry/api error")
+		return "", newAPIErrorF(err, "registry/api error: %s", err)
 	}
 
 	if !secret.IsEmpty() {
@@ -147,22 +149,59 @@ func (c *Client) getBearerTokenFromRealm(ctx context.Context, realmURL string, s
 
 	resp, err := c.http.MakeRequest(req)
 	if err != nil {
-		return "", newAPIErrorF(err, "registry/api error")
+		return "", newAPIErrorF(err, "registry/api error: %s", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		return "", newAPIErrorF(err, "registry/api could not get bearer token from %s, status %s", realmURL, resp.Status)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", newAPIErrorF(err, "registry/api error")
+		return "", newAPIErrorF(err, "registry/api error: %s", err)
 	}
-	var token BearerToken
+	var token bearerToken
 	if err := json.Unmarshal(body, &token); err != nil {
-		return "", err
+		return "", newAPIErrorF(err, "registry/api error: %s", err)
 	}
 	return token.Token, nil
 }
 
-func (c *Client) getTag() ([]string, error) {
-	return nil, nil
+func (c *Client) getTag(ctx context.Context) ([]string, error) {
+	url := c.generateGetTagsURL()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, newAPIErrorF(err, "registry/api error: %s", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.bearerToken)
+
+	resp, err := c.http.MakeRequest(req)
+	if err != nil {
+		return nil, newAPIErrorF(err, "registry/api error: %s", err)
+	}
+	defer resp.Body.Close()
+
+	// Todo add new error on 401 / 403
+	if resp.StatusCode >= 300 {
+		return nil, newAPIErrorF(err, "registry/api could not get tags from %s, status %s", url, resp.Status)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, newAPIErrorF(err, "registry/api error: %s", err)
+	}
+
+	var tags tagList
+	if err := json.Unmarshal(body, &tags); err != nil {
+		return nil, newAPIErrorF(err, "registry/api error: %s", err)
+	}
+
+	return tags.Tags, nil
+}
+
+func (c *Client) generateGetTagsURL() string {
+	return fmt.Sprintf("https://%s/%s/%s/tags/list", c.image.GetRegistryURL(), dockerRegistryVersion, c.image.GetNameWithoutRegistry())
 }
 
 func isValidHeader(headerRegex, header string) bool {
