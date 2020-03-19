@@ -26,19 +26,36 @@ package api
 
 import "fmt"
 
-type Error struct {
+type APIError struct {
 	message string
 	Err     error
 }
 
-func newAPIErrorF(err error, format string, a ...interface{}) Error {
-	return Error{Err: err, message: fmt.Sprintf(format, a...)}
+func newAPIErrorF(err error, format string, a ...interface{}) APIError {
+	return APIError{Err: err, message: fmt.Sprintf(format, a...)}
 }
 
-func (e Error) Error() string {
+func (e APIError) Error() string {
 	return e.message
 }
 
-func (e *Error) Unwrap() error {
+func (e APIError) Unwrap() error {
 	return e.Err
+}
+
+func newPermissionsError(err error, format string, a ...interface{}) PermissionsError {
+	return PermissionsError{Err: err, message: fmt.Sprintf(format, a...)}
+}
+
+type PermissionsError struct {
+	message string
+	Err     error
+}
+
+func (pe PermissionsError) Error() string {
+	return pe.message
+}
+
+func (pe PermissionsError) Unwrap() error {
+	return pe.Err
 }

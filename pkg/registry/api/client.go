@@ -30,7 +30,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 
@@ -40,8 +39,6 @@ import (
 const (
 	httpAuthenticateHeader = "WWW-Authenticate"
 	bearerRealmRegex       = "^Bearer realm=\"(.*?)\",service=\"(.*?)\"$"
-	urlRegex               = "https://[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)"
-	serviceRegex           = "\"(.*?)\""
 	dockerRegistryVersion  = "v2"
 )
 
@@ -80,11 +77,11 @@ func (c *Client) GetTagsForImage(ctx context.Context, secret image.PullSecret) (
 			return nil, err
 		}
 	}
-	return c.getTag(ctx)
+	return c.getTags(ctx)
 }
 
 func (c *Client) getBearerToken(ctx context.Context, secret image.PullSecret) error {
-	realmURL, err := c.getRealmURLFromHeader(ctx)
+	realmURL, err := c.getRealmURLFromImageRegistry(ctx)
 	if err != nil {
 		return err
 	}
@@ -98,7 +95,7 @@ func (c *Client) getBearerToken(ctx context.Context, secret image.PullSecret) er
 	return nil
 }
 
-func (c *Client) getRealmURLFromHeader(ctx context.Context) (string, error) {
+func (c *Client) getRealmURLFromImageRegistry(ctx context.Context) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+c.image.GetRegistryURL()+"/"+dockerRegistryVersion, nil)
 	if err != nil {
 		return "", newAPIErrorF(err, "registry/api error: %s", err)
@@ -134,7 +131,11 @@ func (c *Client) getRealmURLFromHeader(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", realm, service, c.image.GetNameWithoutRegistry()), nil
+	return c.generateRealmURLWithService(realm, service), nil
+}
+
+func (c *Client) generateRealmURLWithService(realm, service string) string {
+	return fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", realm, service, c.image.GetNameWithoutRegistry())
 }
 
 func (c *Client) getBearerTokenFromRealm(ctx context.Context, realmURL string, secret image.PullSecret) (string, error) {
@@ -153,8 +154,8 @@ func (c *Client) getBearerTokenFromRealm(ctx context.Context, realmURL string, s
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= 300 {
-		return "", newAPIErrorF(err, "registry/api could not get bearer token from %s, status %s", realmURL, resp.Status)
+	if err := handleResponseCodeOfResponse(resp); err != nil {
+		return "", err
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
@@ -168,9 +169,8 @@ func (c *Client) getBearerTokenFromRealm(ctx context.Context, realmURL string, s
 	return token.Token, nil
 }
 
-func (c *Client) getTag(ctx context.Context) ([]string, error) {
-	url := c.generateGetTagsURL()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+func (c *Client) getTags(ctx context.Context) ([]string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.generateGetTagsURL(), nil)
 	if err != nil {
 		return nil, newAPIErrorF(err, "registry/api error: %s", err)
 	}
@@ -182,9 +182,8 @@ func (c *Client) getTag(ctx context.Context) ([]string, error) {
 	}
 	defer resp.Body.Close()
 
-	// Todo add new error on 401 / 403
-	if resp.StatusCode >= 300 {
-		return nil, newAPIErrorF(err, "registry/api could not get tags from %s, status %s", url, resp.Status)
+	if err := handleResponseCodeOfResponse(resp); err != nil {
+		return nil, err
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
@@ -202,27 +201,4 @@ func (c *Client) getTag(ctx context.Context) ([]string, error) {
 
 func (c *Client) generateGetTagsURL() string {
 	return fmt.Sprintf("https://%s/%s/%s/tags/list", c.image.GetRegistryURL(), dockerRegistryVersion, c.image.GetNameWithoutRegistry())
-}
-
-func isValidHeader(headerRegex, header string) bool {
-	r := regexp.MustCompile(headerRegex)
-	return r.MatchString(header)
-}
-
-func extractRealmURL(header string) (string, error) {
-	r := regexp.MustCompile(urlRegex)
-	url := r.FindString(header)
-	if url == "" {
-		return "", newAPIErrorF(nil, "header '%s' does not contain a valid URL", header)
-	}
-	return url, nil
-}
-
-func extractService(header string) (string, error) {
-	r := regexp.MustCompile(serviceRegex)
-	service := r.FindString(header)
-	if service == "" {
-		return "", newAPIErrorF(nil, "header '%s' does not contain a valid URL", header)
-	}
-	return strings.Replace(service, "\"", "", -1), nil
 }
