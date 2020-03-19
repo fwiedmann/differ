@@ -123,8 +123,8 @@ func initAllObservers(observerConfig observer.Config) ([]controller.Observer, er
 }
 
 func initOSNotifyChan() <-chan os.Signal {
-	notifyChan := make(chan os.Signal, 0)
-	signal.Notify(notifyChan, syscall.SIGTERM, syscall.SIGINT, syscall.SIGKILL)
+	notifyChan := make(chan os.Signal, 3)
+	signal.Notify(notifyChan, syscall.SIGTERM, syscall.SIGINT)
 	return notifyChan
 }
 

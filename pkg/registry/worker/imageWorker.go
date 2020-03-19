@@ -35,7 +35,7 @@ import (
 
 func StartNewImageWorker(ctx context.Context, rateLimiter ratelimit.Limiter, info chan<- event.Tag) *ImageWorker {
 	newWorker := ImageWorker{
-		associatedKubernetesObjects: make(map[string]event.ObservedKubernetesAPIObjectEvent, 0),
+		associatedKubernetesObjects: make(map[string]event.ObservedKubernetesAPIObjectEvent),
 		mutex:                       sync.RWMutex{},
 		informChan:                  info,
 		rateLimiter:                 rateLimiter,

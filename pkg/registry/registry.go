@@ -39,7 +39,7 @@ import (
 
 func newRegistry(informChan chan<- event.Tag) *registry {
 	return &registry{
-		imageWorkers: make(map[string]*worker.ImageWorker, 0),
+		imageWorkers: make(map[string]*worker.ImageWorker),
 		mutex:        sync.RWMutex{},
 		informChan:   informChan,
 		rateLimiter:  ratelimit.New(5),
@@ -72,10 +72,7 @@ func (r *registry) imageIsNotStoredYet(imageName string) bool {
 	r.mutex.RLock()
 	_, found := r.imageWorkers[imageName]
 	r.mutex.RUnlock()
-	if found {
-		return false
-	}
-	return true
+	return !found
 }
 
 func (r *registry) createNewImageWorkerEntry(ctx context.Context, imageName string) {

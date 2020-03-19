@@ -82,7 +82,7 @@ func (i *WithAssociatedPullSecrets) GetNameWithoutRegistry() string {
 	var name string
 	for i, part := range imageParts[1:] {
 		if i == 0 {
-			name = fmt.Sprintf("%s", part)
+			name = part
 			continue
 		}
 		name = fmt.Sprintf("%s/%s", name, part)
@@ -116,10 +116,7 @@ func (i *WithAssociatedPullSecrets) appendPullSecrets(matchedPullSecrets []PullS
 
 }
 func imageBelongsToRegistry(image string, registry string) bool {
-	if strings.Contains(image, registry) {
-		return true
-	}
-	return false
+	return strings.Contains(image, registry)
 }
 
 func separateImageAndTag(rawImage string) (imageName string, imageTag string) {

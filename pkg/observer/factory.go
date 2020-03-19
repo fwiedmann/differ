@@ -25,7 +25,6 @@
 package observer
 
 import (
-	"errors"
 	"fmt"
 
 	"k8s.io/client-go/informers"
@@ -50,7 +49,7 @@ func NewObserver(observerKind Kind, observerConfig Config) (*Observer, error) {
 	case AppV1StatefulSet:
 		return newAppsV1StatefulSetObserver(observerConfig), nil
 	}
-	return nil, errors.New(fmt.Sprintf("observer kind %s not found", observerKind))
+	return nil, fmt.Errorf("observer kind %s not found", observerKind)
 }
 
 func initNewKubernetesFactory(observerConfig Config) informers.SharedInformerFactory {

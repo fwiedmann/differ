@@ -58,6 +58,7 @@ func NewDifferController(kubernetesEventChannels event.KubernetesEventCommunicat
 func (c *DifferController) StartController(ctx context.Context, rs registry.Registries) {
 	c.startAllObservers(ctx)
 	eventCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 differEventMonitorRoutine:
 	for {
 		select {
@@ -74,7 +75,6 @@ differEventMonitorRoutine:
 			log.Errorf("%s", errorEvent)
 			break differEventMonitorRoutine
 		case <-eventCtx.Done():
-			cancel()
 			break differEventMonitorRoutine
 		}
 	}
