@@ -38,11 +38,11 @@ const (
 func handleResponseCodeOfResponse(resp *http.Response) error {
 	switch {
 	case resp.StatusCode == http.StatusUnauthorized:
-		return newPermissionsError(nil, "registry/api status %s on requesting %s, please check your permissions", resp.Status, resp.Request.URL.String())
+		return newPermissionsError(nil, "registries/api status %s on requesting %s, please check your permissions", resp.Status, resp.Request.URL.String())
 	case resp.StatusCode == http.StatusForbidden:
-		return newPermissionsError(nil, "registry/api status %s on requesting %s, please check your permissions", resp.Status, resp.Request.URL.String())
+		return newPermissionsError(nil, "registries/api status %s on requesting %s, please check your permissions", resp.Status, resp.Request.URL.String())
 	case resp.StatusCode >= 300:
-		return newAPIErrorF(nil, "registry/api status %s on requesting %s", resp.Status, resp.Request.URL.String())
+		return newAPIErrorF(nil, "registries/api status %s on requesting %s", resp.Status, resp.Request.URL.String())
 	default:
 		return nil
 	}

@@ -30,7 +30,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/fwiedmann/differ/pkg/registry"
+	"github.com/fwiedmann/differ/pkg/registries"
 
 	"github.com/fwiedmann/differ/pkg/config"
 	"github.com/fwiedmann/differ/pkg/controller"
@@ -93,7 +93,7 @@ var rootCmd = cobra.Command{
 		osNotifyChan := initOSNotifyChan()
 		ctx, cancel := context.WithCancel(context.Background())
 		registryEvent := make(chan event.Tag)
-		registryStore := registry.NewRegistriesStore(registryEvent)
+		registryStore := registries.NewRegistriesStore(registryEvent)
 
 		go c.StartController(ctx, registryStore)
 		go controller.StartRegistryEventListener(ctx, registryEvent)

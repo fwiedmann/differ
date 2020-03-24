@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package registry
+package registries
 
 import (
 	"context"
@@ -30,7 +30,7 @@ import (
 
 	"go.uber.org/ratelimit"
 
-	"github.com/fwiedmann/differ/pkg/registry/worker"
+	"github.com/fwiedmann/differ/pkg/registries/worker"
 
 	log "github.com/sirupsen/logrus"
 

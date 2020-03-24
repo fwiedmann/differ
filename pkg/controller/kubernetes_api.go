@@ -27,7 +27,7 @@ package controller
 import (
 	"context"
 
-	"github.com/fwiedmann/differ/pkg/registry"
+	"github.com/fwiedmann/differ/pkg/registries"
 
 	log "github.com/sirupsen/logrus"
 
@@ -55,7 +55,7 @@ func NewDifferController(kubernetesEventChannels event.KubernetesEventCommunicat
 }
 
 // StartController starts differ controller loop
-func (c *DifferController) StartController(ctx context.Context, rs registry.Registries) {
+func (c *DifferController) StartController(ctx context.Context, rs registries.Store) {
 	c.startAllObservers(ctx)
 	eventCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
