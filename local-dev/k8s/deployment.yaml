@@ -37,16 +37,16 @@ spec:
           limits:
             memory: "32Mi"
             cpu: "50m"
-        livenessProbe:
-          tcpSocket:
-            port: metrics
-          initialDelaySeconds: 5
-          periodSeconds: 5
-        readinessProbe:
-          tcpSocket:
-            port: metrics
-          initialDelaySeconds: 5
-          periodSeconds: 5
+#        livenessProbe:
+#          tcpSocket:
+#            port: metrics
+#          initialDelaySeconds: 5
+#          periodSeconds: 5
+#        readinessProbe:
+#          tcpSocket:
+#            port: metrics
+#          initialDelaySeconds: 5
+#          periodSeconds: 5
 
       volumes:
           - name: differ-config

@@ -57,7 +57,7 @@ func NewKubernetesAPIEventListener(kubernetesEventChannels event.KubernetesEvent
 }
 
 // Start starts kubernetes API listener controller
-func (k KubernetesAPIEventListener) Start(ctx context.Context) {
+func (k *KubernetesAPIEventListener) Start(ctx context.Context) {
 	k.startAllObservers(ctx)
 	eventCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -82,7 +82,7 @@ differEventMonitorRoutine:
 	}
 }
 
-func (k KubernetesAPIEventListener) startAllObservers(ctx context.Context) {
+func (k *KubernetesAPIEventListener) startAllObservers(ctx context.Context) {
 	for _, o := range k.observers {
 		go o.StartObserving(ctx)
 	}

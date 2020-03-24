@@ -94,7 +94,7 @@ var rootCmd = cobra.Command{
 		imageTagListener := differController.NewRegistryEventListener(newTagChan)
 		ctx, cancel := context.WithCancel(context.Background())
 
-		startControllers(ctx, kubernetesAPIListener, imageTagListener)
+		startControllers(ctx, &kubernetesAPIListener, &imageTagListener)
 
 		go func() {
 			if err := metrics.StartMetricsEndpoint(conf.Metrics); err != nil {
@@ -129,7 +129,7 @@ func initAllObservers(observerConfig observer.Config) ([]differController.Observ
 
 func startControllers(ctx context.Context, controllers ...controller) {
 	for _, c := range controllers {
-		c.Start(ctx)
+		go c.Start(ctx)
 	}
 }
 

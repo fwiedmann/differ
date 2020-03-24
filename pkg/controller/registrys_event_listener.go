@@ -40,7 +40,7 @@ func NewRegistryEventListener(eventChan <-chan event.Tag) RegistryEventListener 
 	return RegistryEventListener{eventChan: eventChan}
 }
 
-func (r RegistryEventListener) Start(ctx context.Context) {
+func (r *RegistryEventListener) Start(ctx context.Context) {
 	infoCtx, cancel := context.WithCancel(ctx)
 differImageEventMonitorRoutine:
 	for {
