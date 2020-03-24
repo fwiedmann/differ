@@ -38,40 +38,42 @@ type Observer interface {
 	StartObserving(ctx context.Context)
 }
 
-// DifferController types struct
-type DifferController struct {
+// KubernetesAPIEventListener types struct
+type KubernetesAPIEventListener struct {
 	kubernetesEventChannels event.KubernetesEventCommunicationChannels
 	observers               []Observer
 	errChan                 chan<- error
+	registriesStore         registries.Store
 }
 
-// NewDifferController initialize the differ controller
-func NewDifferController(kubernetesEventChannels event.KubernetesEventCommunicationChannels, errorChan chan<- error, observers []Observer) *DifferController {
-	return &DifferController{
+// NewKubernetesAPIEventListener initialize a KubernetesAPIEventListener
+func NewKubernetesAPIEventListener(kubernetesEventChannels event.KubernetesEventCommunicationChannels, errorChan chan<- error, observers []Observer, rs registries.Store) KubernetesAPIEventListener {
+	return KubernetesAPIEventListener{
 		kubernetesEventChannels: kubernetesEventChannels,
 		observers:               observers,
 		errChan:                 errorChan,
+		registriesStore:         rs,
 	}
 }
 
-// StartController starts differ controller loop
-func (c *DifferController) StartController(ctx context.Context, rs registries.Store) {
-	c.startAllObservers(ctx)
+// Start starts kubernetes API listener controller
+func (k KubernetesAPIEventListener) Start(ctx context.Context) {
+	k.startAllObservers(ctx)
 	eventCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 differEventMonitorRoutine:
 	for {
 		select {
-		case createEvent := <-c.kubernetesEventChannels.GetADDReceiverEventChanel():
+		case createEvent := <-k.kubernetesEventChannels.GetADDReceiverEventChanel():
 			log.Infof("create event: %s", createEvent)
-			rs.AddImage(eventCtx, createEvent)
-		case deleteEvent := <-c.kubernetesEventChannels.GetDELETReceiverEventChanel():
+			k.registriesStore.AddImage(eventCtx, createEvent)
+		case deleteEvent := <-k.kubernetesEventChannels.GetDELETReceiverEventChanel():
 			log.Infof("delete event: %s", deleteEvent)
-			rs.DeleteImage(deleteEvent)
-		case updateEvent := <-c.kubernetesEventChannels.GetUPDATEReceiverEventChanel():
+			k.registriesStore.DeleteImage(deleteEvent)
+		case updateEvent := <-k.kubernetesEventChannels.GetUPDATEReceiverEventChanel():
 			log.Infof("update event: %s", updateEvent)
-			rs.UpdateImage(eventCtx, updateEvent)
-		case errorEvent := <-c.kubernetesEventChannels.GetERRORReceiverEventChanel():
+			k.registriesStore.UpdateImage(eventCtx, updateEvent)
+		case errorEvent := <-k.kubernetesEventChannels.GetERRORReceiverEventChanel():
 			log.Errorf("%s", errorEvent)
 			break differEventMonitorRoutine
 		case <-eventCtx.Done():
@@ -80,8 +82,8 @@ differEventMonitorRoutine:
 	}
 }
 
-func (c *DifferController) startAllObservers(ctx context.Context) {
-	for _, o := range c.observers {
+func (k KubernetesAPIEventListener) startAllObservers(ctx context.Context) {
+	for _, o := range k.observers {
 		go o.StartObserving(ctx)
 	}
 }

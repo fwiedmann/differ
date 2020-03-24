@@ -32,12 +32,20 @@ import (
 	"github.com/fwiedmann/differ/pkg/event"
 )
 
-func StartRegistryEventListener(ctx context.Context, newTagInformer <-chan event.Tag) {
+type RegistryEventListener struct {
+	eventChan <-chan event.Tag
+}
+
+func NewRegistryEventListener(eventChan <-chan event.Tag) RegistryEventListener {
+	return RegistryEventListener{eventChan: eventChan}
+}
+
+func (r RegistryEventListener) Start(ctx context.Context) {
 	infoCtx, cancel := context.WithCancel(ctx)
 differImageEventMonitorRoutine:
 	for {
 		select {
-		case newEvent := <-newTagInformer:
+		case newEvent := <-r.eventChan:
 			log.Infof("%+v", newEvent)
 		case <-infoCtx.Done():
 			cancel()

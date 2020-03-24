@@ -30,10 +30,11 @@ import (
 	"os/signal"
 	"syscall"
 
+	differController "github.com/fwiedmann/differ/pkg/controller"
+
 	"github.com/fwiedmann/differ/pkg/registries"
 
 	"github.com/fwiedmann/differ/pkg/config"
-	"github.com/fwiedmann/differ/pkg/controller"
 	"github.com/fwiedmann/differ/pkg/event"
 	kubernetes_client "github.com/fwiedmann/differ/pkg/kubernetes-client"
 	"github.com/fwiedmann/differ/pkg/metrics"
@@ -43,6 +44,10 @@ import (
 )
 
 var observerKindsToInit []observer.Kind
+
+type controller interface {
+	Start(ctx context.Context)
+}
 
 func init() {
 	observerKindsToInit = append(observerKindsToInit, observer.AppV1Deployment, observer.AppV1DaemonSet, observer.AppV1StatefulSet)
@@ -82,8 +87,14 @@ var rootCmd = cobra.Command{
 			return err
 		}
 		controllerErrorChan := make(chan error)
+		newTagChan := make(chan event.Tag)
+		registryStore := registries.NewRegistriesStore(newTagChan)
 
-		c := controller.NewDifferController(communicationChannels, controllerErrorChan, op)
+		kubernetesAPIListener := differController.NewKubernetesAPIEventListener(communicationChannels, controllerErrorChan, op, registryStore)
+		imageTagListener := differController.NewRegistryEventListener(newTagChan)
+		ctx, cancel := context.WithCancel(context.Background())
+
+		startControllers(ctx, kubernetesAPIListener, imageTagListener)
 
 		go func() {
 			if err := metrics.StartMetricsEndpoint(conf.Metrics); err != nil {
@@ -91,12 +102,6 @@ var rootCmd = cobra.Command{
 			}
 		}()
 		osNotifyChan := initOSNotifyChan()
-		ctx, cancel := context.WithCancel(context.Background())
-		registryEvent := make(chan event.Tag)
-		registryStore := registries.NewRegistriesStore(registryEvent)
-
-		go c.StartController(ctx, registryStore)
-		go controller.StartRegistryEventListener(ctx, registryEvent)
 
 		select {
 		case osSignal := <-osNotifyChan:
@@ -110,8 +115,8 @@ var rootCmd = cobra.Command{
 	},
 }
 
-func initAllObservers(observerConfig observer.Config) ([]controller.Observer, error) {
-	var initializedObservers []controller.Observer
+func initAllObservers(observerConfig observer.Config) ([]differController.Observer, error) {
+	var initializedObservers []differController.Observer
 	for _, observerKindToInit := range observerKindsToInit {
 		initializedObserver, err := observer.NewObserver(observerKindToInit, observerConfig)
 		if err != nil {
@@ -120,6 +125,12 @@ func initAllObservers(observerConfig observer.Config) ([]controller.Observer, er
 		initializedObservers = append(initializedObservers, initializedObserver)
 	}
 	return initializedObservers, nil
+}
+
+func startControllers(ctx context.Context, controllers ...controller) {
+	for _, c := range controllers {
+		c.Start(ctx)
+	}
 }
 
 func initOSNotifyChan() <-chan os.Signal {
