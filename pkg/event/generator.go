@@ -25,7 +25,9 @@
 package event
 
 import (
+	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/fwiedmann/differ/pkg/image"
 	v1 "k8s.io/api/core/v1"
@@ -99,11 +101,15 @@ func (eventGenerator *Generator) getAllImagePullSecretsByRegistry(ImagePullSecre
 }
 
 func (eventGenerator *Generator) getImagePullSecretFromAPI(secretName string) (*v1.Secret, error) {
-	secret, err := eventGenerator.KubernetesAPIClient.CoreV1().Secrets(eventGenerator.WorkingNamespace).Get(secretName, metaV1.GetOptions{
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+
+	secret, err := eventGenerator.KubernetesAPIClient.CoreV1().Secrets(eventGenerator.WorkingNamespace).Get(ctx, secretName, metaV1.GetOptions{
 		TypeMeta: metaV1.TypeMeta{
 			Kind: "kubernetes.io/dockerconfigjson",
 		},
 	})
+
+	cancel()
 	return secret, err
 }
 
