@@ -127,16 +127,16 @@ func appendImagePullSecretsToRegistry(unmarshalledSecret map[string]interface{},
 }
 
 func getImagePullSecretFromRegistryInterface(auth interface{}) image.PullSecret {
-	pullSecret := image.PullSecret{}
+	var username, password string
 	for jsonAuthKey, jsonAuthValue := range auth.(map[string]interface{}) {
 		switch jsonAuthKey {
 		case "username":
-			pullSecret.Username = jsonAuthValue.(string)
+			username = jsonAuthValue.(string)
 		case "password":
-			pullSecret.Password = jsonAuthValue.(string)
+			password = jsonAuthValue.(string)
 		}
 	}
-	return pullSecret
+	return image.NewPullSecret(username, password)
 }
 
 func appendPullSecretsWhichBelongsToImage(images []image.WithAssociatedPullSecrets, allPullSecrets map[string][]image.PullSecret) []image.WithAssociatedPullSecrets {

@@ -32,8 +32,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/fwiedmann/differ/pkg/image"
 )
 
 const (
@@ -41,10 +39,6 @@ const (
 	bearerRealmRegex       = "^Bearer realm=\"(.*?)\",service=\"(.*?)\"$"
 	dockerRegistryVersion  = "v2"
 )
-
-type HTTPClient interface {
-	MakeRequest(r *http.Request) (*http.Response, error)
-}
 
 type bearerToken struct {
 	Token       string    `json:"token"`
@@ -57,20 +51,43 @@ type tagList struct {
 	Tags []string `json:"tags"`
 }
 
+// HTTPClient interface wraps a http client with a simple request method for easy testing of API calls
+type HTTPClient interface {
+	MakeRequest(r *http.Request) (*http.Response, error)
+}
+
+// Image is the interface that wraps a image representation and its required information in a formatted format
+// that the client requires for different kind of API calls
+type Image interface {
+	GetNameWithoutRegistry() string
+	GetRegistryURL() string
+}
+
+// PullSecret is the interface that wraps a pull secret representation with a username and password.
+type PullSecret interface {
+	Username() string
+	Password() string
+}
+
+// Client requests a  registry of a given image. If  pull secret is nil it will request the registry without basic-auth.
+// The stores a bearer token to avoid unnecessary traffic and registry restrictions of max login. If an API call code is 401 or 403
+// the client return a PermissionsError, else a ClientAPIError.
 type Client struct {
-	image       image.WithAssociatedPullSecrets
+	image       Image
 	bearerToken string
 	http        HTTPClient
 }
 
-func New(image image.WithAssociatedPullSecrets, c HTTPClient) *Client {
+// New
+func New(c HTTPClient, img Image) *Client {
 	return &Client{
-		image: image,
+		image: img,
 		http:  c,
 	}
 }
 
-func (c *Client) GetTagsForImage(ctx context.Context, secret image.PullSecret) ([]string, error) {
+// GetTagsForImage
+func (c *Client) GetTagsForImage(ctx context.Context, secret PullSecret) ([]string, error) {
 	if c.bearerToken == "" {
 		err := c.getBearerToken(ctx, secret)
 		if err != nil {
@@ -80,7 +97,7 @@ func (c *Client) GetTagsForImage(ctx context.Context, secret image.PullSecret) (
 	return c.getTags(ctx)
 }
 
-func (c *Client) getBearerToken(ctx context.Context, secret image.PullSecret) error {
+func (c *Client) getBearerToken(ctx context.Context, secret PullSecret) error {
 	realmURL, err := c.getRealmURLFromImageRegistry(ctx)
 	if err != nil {
 		return err
@@ -138,14 +155,14 @@ func (c *Client) generateRealmURLWithService(realm, service string) string {
 	return fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", realm, service, c.image.GetNameWithoutRegistry())
 }
 
-func (c *Client) getBearerTokenFromRealm(ctx context.Context, realmURL string, secret image.PullSecret) (string, error) {
+func (c *Client) getBearerTokenFromRealm(ctx context.Context, realmURL string, secret PullSecret) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, realmURL, nil)
 	if err != nil {
 		return "", newAPIErrorF(err, "registries/api error: %s", err)
 	}
 
-	if !secret.IsEmpty() {
-		req.SetBasicAuth(secret.Username, secret.Username)
+	if secret != nil {
+		req.SetBasicAuth(secret.Username(), secret.Username())
 	}
 
 	resp, err := c.http.MakeRequest(req)

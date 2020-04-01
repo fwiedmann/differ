@@ -41,24 +41,6 @@ func (i WithAssociatedPullSecrets) String() string {
 	return fmt.Sprintf("containerName: %s, imageName: %s, imageTag: %s, pullSecrets: %v", i.containerName, i.imageName, i.imageTag, i.pullSecrets)
 }
 
-type PullSecret struct {
-	Username string
-	Password string
-}
-
-func (ps PullSecret) String() string {
-	var stars string
-
-	for i := 0; i < len(ps.Password); i++ {
-		stars += "*"
-	}
-	return fmt.Sprintf("username: %s, password: %s", ps.Username, stars)
-}
-
-func (ps PullSecret) IsEmpty() bool {
-	return ps.Username == "" || ps.Password == ""
-}
-
 func NewWithAssociatedPullSecrets(rawImage, containerName string) WithAssociatedPullSecrets {
 	name, tag := separateImageAndTag(rawImage)
 	return WithAssociatedPullSecrets{
@@ -68,15 +50,15 @@ func NewWithAssociatedPullSecrets(rawImage, containerName string) WithAssociated
 	}
 }
 
-func (i *WithAssociatedPullSecrets) GetContainerName() string {
+func (i WithAssociatedPullSecrets) GetContainerName() string {
 	return i.containerName
 }
 
-func (i *WithAssociatedPullSecrets) GetNameWithRegistry() string {
+func (i WithAssociatedPullSecrets) GetNameWithRegistry() string {
 	return i.imageName
 }
 
-func (i *WithAssociatedPullSecrets) GetNameWithoutRegistry() string {
+func (i WithAssociatedPullSecrets) GetNameWithoutRegistry() string {
 	imageParts := strings.Split(i.imageName, "/")
 
 	var name string
@@ -90,31 +72,27 @@ func (i *WithAssociatedPullSecrets) GetNameWithoutRegistry() string {
 	return name
 }
 
-func (i *WithAssociatedPullSecrets) GetTag() string {
+func (i WithAssociatedPullSecrets) GetTag() string {
 	return i.imageTag
 }
 
-func (i *WithAssociatedPullSecrets) GetPullSecrets() []PullSecret {
+func (i WithAssociatedPullSecrets) GetPullSecrets() []PullSecret {
 	return i.pullSecrets
 }
 
-func (i *WithAssociatedPullSecrets) GetRegistryURL() string {
+func (i WithAssociatedPullSecrets) GetRegistryURL() string {
 	separatedURLAndImage := strings.Split(i.imageName, "/")
 	return separatedURLAndImage[0]
 }
 
-func (i *WithAssociatedPullSecrets) AppendImagePullSecretsWhichBelongsToImage(pullSecrets map[string][]PullSecret) {
+func (i WithAssociatedPullSecrets) AppendImagePullSecretsWhichBelongsToImage(pullSecrets map[string][]PullSecret) {
 	for registryName, secrets := range pullSecrets {
 		if imageBelongsToRegistry(i.GetNameWithRegistry(), registryName) {
-			i.appendPullSecrets(secrets)
+			i.pullSecrets = append(i.pullSecrets, secrets...)
 		}
 	}
 }
 
-func (i *WithAssociatedPullSecrets) appendPullSecrets(matchedPullSecrets []PullSecret) {
-	i.pullSecrets = append(i.pullSecrets, matchedPullSecrets...)
-
-}
 func imageBelongsToRegistry(image string, registry string) bool {
 	return strings.Contains(image, registry)
 }

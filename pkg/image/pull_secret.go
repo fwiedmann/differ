@@ -22,46 +22,35 @@
  * SOFTWARE.
  */
 
-package api
+package image
 
 import "fmt"
 
-// ClientAPIError represents a error for calls to a registries API
-type ClientAPIError struct {
-	message string
-	Err     error
+func NewPullSecret(username, password string) PullSecret {
+	return PullSecret{
+		username: username,
+		password: password,
+	}
 }
 
-func newAPIErrorF(err error, format string, a ...interface{}) ClientAPIError {
-	return ClientAPIError{Err: err, message: fmt.Sprintf(format, a...)}
+type PullSecret struct {
+	username string
+	password string
 }
 
-// Error implements the error interface
-func (e ClientAPIError) Error() string {
-	return e.message
+func (ps PullSecret) Username() string {
+	return ps.username
 }
 
-// Unwrap support for wrapping errors
-func (e ClientAPIError) Unwrap() error {
-	return e.Err
+func (ps PullSecret) Password() string {
+	return ps.password
 }
 
-func newPermissionsError(err error, format string, a ...interface{}) PermissionsError {
-	return PermissionsError{Err: err, message: fmt.Sprintf(format, a...)}
-}
+func (ps PullSecret) String() string {
+	var stars string
 
-// PermissionsError represents a error for http status codes 401 or 403
-type PermissionsError struct {
-	message string
-	Err     error
-}
-
-// Error implements the error interface
-func (pe PermissionsError) Error() string {
-	return pe.message
-}
-
-// Unwrap support for wrapping errors
-func (pe PermissionsError) Unwrap() error {
-	return pe.Err
+	for i := 0; i < len(ps.password); i++ {
+		stars += "*"
+	}
+	return fmt.Sprintf("username: %s, password: %s", ps.Username, stars)
 }
