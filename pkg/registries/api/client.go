@@ -200,6 +200,7 @@ func (c *Client) getTags(ctx context.Context) ([]string, error) {
 	defer resp.Body.Close()
 
 	if err := handleResponseCodeOfResponse(resp); err != nil {
+		c.bearerToken = ""
 		return nil, err
 	}
 
