@@ -93,8 +93,18 @@ func (c *Client) GetTagsForImage(ctx context.Context, secret PullSecret) ([]stri
 		if err != nil {
 			return nil, err
 		}
+		return c.getTags(ctx)
 	}
-	return c.getTags(ctx)
+
+	tags, err := c.getTags(ctx)
+	if _, ok := err.(PermissionsError); ok {
+		err := c.getBearerToken(ctx, secret)
+		if err != nil {
+			return nil, err
+		}
+		return c.getTags(ctx)
+	}
+	return tags, err
 }
 
 func (c *Client) getBearerToken(ctx context.Context, secret PullSecret) error {

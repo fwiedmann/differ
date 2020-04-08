@@ -10,7 +10,7 @@ install_kind:
 	sudo mv ./kind /usr/local/bin/kind
 
 cluster_bootstrap: cluster_delete
-	kind create cluster --config local-dev/local_cluster.yaml --wait 5m --name $(clustername)
+	kind create cluster --config local-dev/local_cluster.yaml --wait 5m --name $(clustername) --image kindest/node:v1.18.0
 
 cluster_delete:
 	kind delete cluster --name differ-cluster
