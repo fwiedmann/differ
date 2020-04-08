@@ -30,6 +30,10 @@ import (
 	"strings"
 )
 
+const (
+	dockerHubURL = "registry-1.docker.io"
+)
+
 type WithAssociatedPullSecrets struct {
 	containerName string
 	imageName     string
@@ -98,10 +102,9 @@ func imageBelongsToRegistry(image string, registry string) bool {
 }
 
 func separateImageAndTag(rawImage string) (imageName string, imageTag string) {
-	separatedImage := splitImage(rawImage)
-
+	separatedImage := strings.Split(rawImage, ":")
 	if isDockerHubImage(separatedImage[0]) {
-		separatedImage[0] = "registry-1.docker.io/" + separatedImage[0]
+		separatedImage[0] = modifyImageForDockerHub(separatedImage[0])
 	}
 	switch {
 	case hasPortAndTag(separatedImage):
@@ -114,12 +117,15 @@ func separateImageAndTag(rawImage string) (imageName string, imageTag string) {
 	return separatedImage[0], "latest"
 }
 
-func splitImage(image string) []string {
-	return strings.Split(image, ":")
-}
-
 func isDockerHubImage(imageName string) bool {
 	return !strings.Contains(imageName, ".")
+}
+
+func modifyImageForDockerHub(image string) string {
+	if !strings.Contains(image, "/") {
+		return fmt.Sprintf("%s/library/%s", dockerHubURL, image)
+	}
+	return fmt.Sprintf("%s/%s", dockerHubURL, image)
 }
 
 func hasOnlyTag(separatedImage []string) bool {
