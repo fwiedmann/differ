@@ -51,11 +51,6 @@ type tagList struct {
 	Tags []string `json:"tags"`
 }
 
-// HTTPClient interface wraps a http client with a simple request method for easy testing of API calls
-type HTTPClient interface {
-	MakeRequest(r *http.Request) (*http.Response, error)
-}
-
 // Image is the interface that wraps a image representation and its required information in a formatted format
 // that the client requires for different kind of API calls
 type Image interface {
@@ -75,14 +70,13 @@ type PullSecret interface {
 type Client struct {
 	image       Image
 	bearerToken string
-	http        HTTPClient
+	http.Client
 }
 
 // New
-func New(c HTTPClient, img Image) *Client {
+func New(img Image) *Client {
 	return &Client{
 		image: img,
-		http:  c,
 	}
 }
 
@@ -128,7 +122,7 @@ func (c *Client) getRealmURLFromImageRegistry(ctx context.Context) (string, erro
 		return "", newAPIErrorF(err, "registries/api error: %s", err)
 	}
 
-	resp, err := c.http.MakeRequest(req)
+	resp, err := c.Do(req)
 	if err != nil {
 		return "", newAPIErrorF(err, "registries/api error: %s", err)
 	}
@@ -175,7 +169,7 @@ func (c *Client) getBearerTokenFromRealm(ctx context.Context, realmURL string, s
 		req.SetBasicAuth(secret.Username(), secret.Username())
 	}
 
-	resp, err := c.http.MakeRequest(req)
+	resp, err := c.Do(req)
 	if err != nil {
 		return "", newAPIErrorF(err, "registries/api error: %s", err)
 	}
@@ -203,7 +197,7 @@ func (c *Client) getTags(ctx context.Context) ([]string, error) {
 	}
 	req.Header.Set("Authorization", "Bearer "+c.bearerToken)
 
-	resp, err := c.http.MakeRequest(req)
+	resp, err := c.Do(req)
 	if err != nil {
 		return nil, newAPIErrorF(err, "registries/api error: %s", err)
 	}
