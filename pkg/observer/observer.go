@@ -114,13 +114,7 @@ func (o *Observer) sendObjectToEventReceiverType(obj interface{}, sender func(ev
 		return
 	}
 
-	uid := handledObject.GetUID()
-	objectName := handledObject.GetNameOfObservedObject()
-	apiVersion := o.kubernetesAPIVersion
-	apiKind := o.kubernetesObjectKind
-	namespace := o.observerConfig.namespaceToScrape
-
-	kubernetesResourceMetaInfo := event.NewKubernetesAPIObjectMetaInformation(uid, apiVersion, apiKind, namespace, objectName)
+	kubernetesResourceMetaInfo := event.NewKubernetesAPIObjectMetaInformation(handledObject.GetUID(), o.kubernetesAPIVersion, o.kubernetesObjectKind, o.observerConfig.namespaceToScrape, handledObject.GetNameOfObservedObject())
 	eventsToSend, err := o.observerConfig.eventGenerator.GenerateEventsFromPodSpec(handledObject.GetPodSpec(), kubernetesResourceMetaInfo)
 	if err != nil {
 		o.observerConfig.SendERRORToReceiver(err)

@@ -33,7 +33,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var onlyDigits = "\\d+"
+const onlyDigits = "\\d+"
+
 var numberRegex = regexp.MustCompile(onlyDigits)
 
 // GetRegexExprForTag creates a regex expression dynamically for the given tag. It try's to exchange the digits with the onyDigits expression.
@@ -44,7 +45,7 @@ func GetRegexExprForTag(tag string) (*regexp.Regexp, error) {
 
 // GetLatestTagWithRegexExpr filters valid tags for the given expression and sort those. The latest valid tag will be returned
 func GetLatestTagWithRegexExpr(tags []string, regx *regexp.Regexp) (string, error) {
-	tagsToSort := make(sorter, 0)
+	tagsToSort := make(sorter, len(tags))
 	for _, tag := range tags {
 		if regx.MatchString(tag) {
 			tagDigits, err := getDigitsFromString(tag)

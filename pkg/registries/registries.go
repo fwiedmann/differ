@@ -66,8 +66,7 @@ func (s *Store) registryIsNotInStoreYet(registryURL string) bool {
 }
 
 func (s *Store) UpdateImage(ctx context.Context, obj event.ObservedKubernetesAPIObjectEvent) {
-	registryURL := obj.ImageWithPullSecrets.GetRegistryURL()
-	correspondingRegistryOfImage, found := s.instances.Load(registryURL)
+	correspondingRegistryOfImage, found := s.instances.Load(obj.ImageWithPullSecrets.GetRegistryURL())
 	if !found {
 		log.Errorf("tried to update image for object with uuid \"%s\" but corresponding registries \"%s\" does not exists", obj.GetUID(), obj.ImageWithPullSecrets.GetRegistryURL())
 		return
@@ -77,8 +76,7 @@ func (s *Store) UpdateImage(ctx context.Context, obj event.ObservedKubernetesAPI
 }
 
 func (s *Store) DeleteImage(obj event.ObservedKubernetesAPIObjectEvent) {
-	registryURL := obj.ImageWithPullSecrets.GetRegistryURL()
-	correspondingRegistryOfImage, found := s.instances.Load(registryURL)
+	correspondingRegistryOfImage, found := s.instances.Load(obj.ImageWithPullSecrets.GetRegistryURL())
 	if !found {
 		log.Errorf("tried to delete image for object with uuid \"%s\" but corresponding registries \"%s\" does not exists", obj.GetUID(), obj.ImageWithPullSecrets.GetRegistryURL())
 		return
