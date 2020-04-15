@@ -73,14 +73,15 @@ type Client struct {
 	http.Client
 }
 
-// New
-func New(img Image) *Client {
+// New image registry API client which will store the bearer token for authorization
+func New(c http.Client, img Image) *Client {
 	return &Client{
-		image: img,
+		image:  img,
+		Client: c,
 	}
 }
 
-// GetTagsForImage
+// GetTagsForImage for configured client. If secret is nil the request will omit the BasicAuth HTTP header
 func (c *Client) GetTagsForImage(ctx context.Context, secret PullSecret) ([]string, error) {
 	if c.bearerToken == "" {
 		err := c.getBearerToken(ctx, secret)
