@@ -117,7 +117,7 @@ func (c *Client) getBearerToken(ctx context.Context, secret PullSecret) error {
 	return nil
 }
 
-func (c *Client) getRealmURLFromImageRegistry(ctx context.Context) (string, error) {
+func (c *Client) getRealmURLFromImageRegistry(ctx context.Context) (url string, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+c.image.GetRegistryURL()+"/"+dockerRegistryVersion, nil)
 	if err != nil {
 		return "", newAPIErrorF(err, "registries/api error: %s", err)
@@ -127,7 +127,11 @@ func (c *Client) getRealmURLFromImageRegistry(ctx context.Context) (string, erro
 	if err != nil {
 		return "", newAPIErrorF(err, "registries/api error: %s", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); err != nil {
+			err = closeErr
+		}
+	}()
 
 	if resp.StatusCode != http.StatusUnauthorized {
 		return "", newAPIErrorF(err, "registries/api error: invalid response code %d from %s registries when trying to get realm URL for bearer token for image %s. Registry does not follow the %s header standard. %d is required", resp.StatusCode, c.image.GetRegistryURL(), c.image.GetNameWithoutRegistry(), httpAuthenticateHeader, http.StatusUnauthorized)
@@ -160,7 +164,7 @@ func (c *Client) generateRealmURLWithService(realm, service string) string {
 	return fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", realm, service, c.image.GetNameWithoutRegistry())
 }
 
-func (c *Client) getBearerTokenFromRealm(ctx context.Context, realmURL string, secret PullSecret) (string, error) {
+func (c *Client) getBearerTokenFromRealm(ctx context.Context, realmURL string, secret PullSecret) (token string, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, realmURL, nil)
 	if err != nil {
 		return "", newAPIErrorF(err, "registries/api error: %s", err)
@@ -174,7 +178,12 @@ func (c *Client) getBearerTokenFromRealm(ctx context.Context, realmURL string, s
 	if err != nil {
 		return "", newAPIErrorF(err, "registries/api error: %s", err)
 	}
-	defer resp.Body.Close()
+
+	defer func() {
+		if closeErr := resp.Body.Close(); err != nil {
+			err = closeErr
+		}
+	}()
 
 	if err := handleResponseCodeOfResponse(resp); err != nil {
 		return "", err
@@ -184,11 +193,11 @@ func (c *Client) getBearerTokenFromRealm(ctx context.Context, realmURL string, s
 	if err != nil {
 		return "", newAPIErrorF(err, "registries/api error: %s", err)
 	}
-	var token bearerToken
-	if err := json.Unmarshal(body, &token); err != nil {
+	var t bearerToken
+	if err := json.Unmarshal(body, &t); err != nil {
 		return "", newAPIErrorF(err, "registries/api error: %s", err)
 	}
-	return token.Token, nil
+	return t.Token, nil
 }
 
 func (c *Client) getTags(ctx context.Context) ([]string, error) {
@@ -202,7 +211,12 @@ func (c *Client) getTags(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, newAPIErrorF(err, "registries/api error: %s", err)
 	}
-	defer resp.Body.Close()
+
+	defer func() {
+		if closeErr := resp.Body.Close(); err != nil {
+			err = closeErr
+		}
+	}()
 
 	if err := handleResponseCodeOfResponse(resp); err != nil {
 		c.bearerToken = ""
