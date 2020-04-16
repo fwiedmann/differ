@@ -45,7 +45,7 @@ func GetRegexExprForTag(tag string) (*regexp.Regexp, error) {
 
 // GetLatestTagWithRegexExpr filters valid tags for the given expression and sort those. The latest valid tag will be returned
 func GetLatestTagWithRegexExpr(tags []string, regx *regexp.Regexp) (string, error) {
-	tagsToSort := make(sorter, len(tags))
+	var tagsToSort sorter
 	for _, tag := range tags {
 		if regx.MatchString(tag) {
 			tagDigits, err := getDigitsFromString(tag)
@@ -60,7 +60,7 @@ func GetLatestTagWithRegexExpr(tags []string, regx *regexp.Regexp) (string, erro
 		}
 	}
 	sort.Sort(tagsToSort)
-	if len(tagsToSort) == 0 {
+	if tagsToSort == nil {
 		return "", fmt.Errorf("tags-analyzer: could not find any valid tags with pattern %s from tags %s", regx.String(), tags)
 	}
 	return tagsToSort[len(tagsToSort)-1].complete, nil
