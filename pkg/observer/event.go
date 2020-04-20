@@ -22,13 +22,30 @@
  * SOFTWARE.
  */
 
-package event
+package observer
 
 import (
 	"fmt"
 
+	"github.com/fwiedmann/differ/pkg/image"
 	"k8s.io/apimachinery/pkg/types"
 )
+
+// ImageWithKubernetesMetadata contains unique meta information from scraped resource types
+type ImageWithKubernetesMetadata struct {
+	MetaInformation      KubernetesAPIObjectMetaInformation
+	ImageWithPullSecrets image.WithAssociatedPullSecrets
+}
+
+// GetUID generates a unique ID based of the kubernetes metadata
+func (o ImageWithKubernetesMetadata) GetUID() string {
+	return fmt.Sprintf("%s_%s_%s_%s_%s_%s", o.MetaInformation.Namespace, o.MetaInformation.APIVersion, o.MetaInformation.UID, o.MetaInformation.WorkloadName, o.MetaInformation.ResourceType, o.ImageWithPullSecrets.GetContainerName())
+}
+
+// String implements the stringer interface
+func (o ImageWithKubernetesMetadata) String() string {
+	return fmt.Sprintf("MetaInformation: %s, ImageWithPullSecrets: %s", o.MetaInformation, o.ImageWithPullSecrets)
+}
 
 // KubernetesAPIObjectMetaInformation from the kubernetes API object
 type KubernetesAPIObjectMetaInformation struct {
@@ -39,6 +56,7 @@ type KubernetesAPIObjectMetaInformation struct {
 	WorkloadName string
 }
 
+// String implements the stringer interface
 func (k KubernetesAPIObjectMetaInformation) String() string {
 	return fmt.Sprintf("UID: %s, APIVersion: %s, ResourceType: %s, Namespace: %s, WorkloadName: %s", k.UID, k.APIVersion, k.ResourceType, k.Namespace, k.WorkloadName)
 }

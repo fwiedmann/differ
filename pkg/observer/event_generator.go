@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package event
+package observer
 
 import (
 	"context"
@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// Generator extract all containers to an slice of ImageWithKubernetesMetadata
 type Generator struct {
 	KubernetesAPIClient kubernetes.Interface
 	WorkingNamespace    string
@@ -49,12 +50,12 @@ func NewGenerator(kubernetesAPIClient kubernetes.Interface, workingNamespace str
 
 // GenerateEventsFromPodSpec will extract all containers from the podSpec, requests all given image pull secrets from the kubernetes API
 // and generate events for each container
-func (eventGenerator *Generator) GenerateEventsFromPodSpec(podSpec v1.PodSpec, kubernetesMetaInformation KubernetesAPIObjectMetaInformation) ([]ObservedKubernetesAPIObjectEvent, error) {
+func (eventGenerator *Generator) GenerateEventsFromPodSpec(podSpec v1.PodSpec, kubernetesMetaInformation KubernetesAPIObjectMetaInformation) ([]ImageWithKubernetesMetadata, error) {
 	extractedImagesFromPodSpec := eventGenerator.extractImagesFromPodSpec(podSpec)
 	extractedPullSecretsFromPodSpec, err := eventGenerator.extractPullSecretsFromPodSpec(podSpec)
 
 	if err != nil {
-		return []ObservedKubernetesAPIObjectEvent{}, err
+		return []ImageWithKubernetesMetadata{}, err
 	}
 	updatedImagesWithPullSecrets := appendPullSecretsWhichBelongsToImage(extractedImagesFromPodSpec, extractedPullSecretsFromPodSpec)
 
@@ -148,9 +149,9 @@ func appendPullSecretsWhichBelongsToImage(images []image.WithAssociatedPullSecre
 	return updatedImages
 }
 
-func createEventForEachImage(images []image.WithAssociatedPullSecrets, kubernetesMetaInformation KubernetesAPIObjectMetaInformation) (generatedEvents []ObservedKubernetesAPIObjectEvent) {
+func createEventForEachImage(images []image.WithAssociatedPullSecrets, kubernetesMetaInformation KubernetesAPIObjectMetaInformation) (generatedEvents []ImageWithKubernetesMetadata) {
 	for _, imageForEvent := range images {
-		generatedEvents = append(generatedEvents, ObservedKubernetesAPIObjectEvent{
+		generatedEvents = append(generatedEvents, ImageWithKubernetesMetadata{
 			MetaInformation:      kubernetesMetaInformation,
 			ImageWithPullSecrets: imageForEvent,
 		})

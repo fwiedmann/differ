@@ -27,16 +27,16 @@ package controller
 import (
 	"context"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/fwiedmann/differ/pkg/registries/worker"
 
-	"github.com/fwiedmann/differ/pkg/event"
+	log "github.com/sirupsen/logrus"
 )
 
 type RegistryEventListener struct {
-	eventChan <-chan event.Tag
+	eventChan <-chan worker.Event
 }
 
-func NewRegistryEventListener(eventChan <-chan event.Tag) RegistryEventListener {
+func NewRegistryEventListener(eventChan <-chan worker.Event) RegistryEventListener {
 	return RegistryEventListener{eventChan: eventChan}
 }
 
@@ -46,7 +46,7 @@ differImageEventMonitorRoutine:
 	for {
 		select {
 		case newEvent := <-r.eventChan:
-			log.Infof("%+v", newEvent)
+			log.Infof("%+v", newEvent.GeLatestTag())
 		case <-infoCtx.Done():
 			cancel()
 			break differImageEventMonitorRoutine

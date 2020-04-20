@@ -27,9 +27,10 @@ package observer
 import (
 	"context"
 
+	log "github.com/sirupsen/logrus"
+
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/fwiedmann/differ/pkg/event"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -37,7 +38,14 @@ import (
 
 // EventGenerator for events send from a kubernetes shared index informer
 type EventGenerator interface {
-	GenerateEventsFromPodSpec(podSpec v1.PodSpec, kubernetesMetaInformation event.KubernetesAPIObjectMetaInformation) ([]event.ObservedKubernetesAPIObjectEvent, error)
+	GenerateEventsFromPodSpec(podSpec v1.PodSpec, kubernetesMetaInformation KubernetesAPIObjectMetaInformation) ([]ImageWithKubernetesMetadata, error)
+}
+
+// RegistriesStore handle the events observed by the kubernetes shared informer
+type RegistriesStore interface {
+	AddImage(ctx context.Context, obj ImageWithKubernetesMetadata)
+	UpdateImage(ctx context.Context, obj ImageWithKubernetesMetadata)
+	DeleteImage(obj ImageWithKubernetesMetadata)
 }
 
 // Observer listens on a kubernetes api type events
@@ -47,6 +55,7 @@ type Observer struct {
 	kubernetesSharedInformer   cache.SharedIndexInformer
 	kubernetesObjectKind       string
 	kubernetesAPIVersion       string
+	ctx                        context.Context
 }
 
 // KubernetesObjectHandler extract required information from the kubernetes API type for the event
@@ -60,31 +69,33 @@ type KubernetesObjectHandler interface {
 type Config struct {
 	namespaceToScrape   string
 	kubernetesAPIClient kubernetes.Interface
-	event.KubernetesEventCommunicationChannels
-	eventGenerator *event.Generator
+	eventGenerator      *Generator
+	registryStore       RegistriesStore
 }
 
-func NewObserverConfig(namespaceToScrape string, kubernetesAPIClient kubernetes.Interface, kubernetesEventCommunicationChannels event.KubernetesEventCommunicationChannels, eventGenerator *event.Generator) Config {
+// NewObserverConfig contains a core configuration for each observer
+func NewObserverConfig(namespaceToScrape string, kubernetesAPIClient kubernetes.Interface, eventGenerator *Generator, rs RegistriesStore) Config {
 	return Config{
-		namespaceToScrape:                    namespaceToScrape,
-		kubernetesAPIClient:                  kubernetesAPIClient,
-		KubernetesEventCommunicationChannels: kubernetesEventCommunicationChannels,
-		eventGenerator:                       eventGenerator,
+		namespaceToScrape:   namespaceToScrape,
+		kubernetesAPIClient: kubernetesAPIClient,
+		eventGenerator:      eventGenerator,
+		registryStore:       rs,
 	}
 
 }
 
 // StartObserving of the kubernetes API type and send events to the event channels
 func (o *Observer) StartObserving(ctx context.Context) {
-	stopChan := make(chan struct{})
-	go o.kubernetesSharedInformer.Run(stopChan)
-
+	o.ctx = ctx
 	observerCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	stopChan := make(chan struct{})
+
+	go o.kubernetesSharedInformer.Run(stopChan)
 
 	<-observerCtx.Done()
 	stopChan <- struct{}{}
 	close(stopChan)
+	cancel()
 }
 
 func (o *Observer) initSharedIndexInformerWithHandleFunctions() {
@@ -96,29 +107,43 @@ func (o *Observer) initSharedIndexInformerWithHandleFunctions() {
 }
 
 func (o *Observer) onAdd(obj interface{}) {
-	o.sendObjectToEventReceiverType(obj, o.observerConfig.SendADDEventsToReceiver)
+	observedAPIObjects, err := o.getKubernetesObjects(obj)
+	if err != nil {
+		log.Error(err)
+	}
+
+	for _, obj := range observedAPIObjects {
+		go o.observerConfig.registryStore.AddImage(o.ctx, obj)
+	}
 }
 
 func (o *Observer) onUpdate(_, newObj interface{}) {
-	o.sendObjectToEventReceiverType(newObj, o.observerConfig.SendUPDATEEventsToReceiver)
+	observedAPIObjects, err := o.getKubernetesObjects(newObj)
+	if err != nil {
+		log.Error(err)
+	}
+
+	for _, obj := range observedAPIObjects {
+		go o.observerConfig.registryStore.UpdateImage(o.ctx, obj)
+	}
 }
 
 func (o *Observer) onDelete(obj interface{}) {
-	o.sendObjectToEventReceiverType(obj, o.observerConfig.SendDELETEEventsToReceiver)
+	observedAPIObjects, err := o.getKubernetesObjects(obj)
+	if err != nil {
+		log.Error(err)
+	}
+
+	for _, obj := range observedAPIObjects {
+		go o.observerConfig.registryStore.DeleteImage(obj)
+	}
 }
 
-func (o *Observer) sendObjectToEventReceiverType(obj interface{}, sender func(events []event.ObservedKubernetesAPIObjectEvent)) {
+func (o *Observer) getKubernetesObjects(obj interface{}) ([]ImageWithKubernetesMetadata, error) {
 	handledObject, err := o.newKubernetesObjectHandler(obj)
 	if err != nil {
-		o.observerConfig.SendERRORToReceiver(err)
-		return
+		return nil, err
 	}
-
-	kubernetesResourceMetaInfo := event.NewKubernetesAPIObjectMetaInformation(handledObject.GetUID(), o.kubernetesAPIVersion, o.kubernetesObjectKind, o.observerConfig.namespaceToScrape, handledObject.GetNameOfObservedObject())
-	eventsToSend, err := o.observerConfig.eventGenerator.GenerateEventsFromPodSpec(handledObject.GetPodSpec(), kubernetesResourceMetaInfo)
-	if err != nil {
-		o.observerConfig.SendERRORToReceiver(err)
-		return
-	}
-	sender(eventsToSend)
+	kubernetesResourceMetaInfo := NewKubernetesAPIObjectMetaInformation(handledObject.GetUID(), o.kubernetesAPIVersion, o.kubernetesObjectKind, o.observerConfig.namespaceToScrape, handledObject.GetNameOfObservedObject())
+	return o.observerConfig.eventGenerator.GenerateEventsFromPodSpec(handledObject.GetPodSpec(), kubernetesResourceMetaInfo)
 }

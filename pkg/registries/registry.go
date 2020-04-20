@@ -28,18 +28,18 @@ import (
 	"context"
 	"sync"
 
+	"github.com/fwiedmann/differ/pkg/observer"
+
 	"go.uber.org/ratelimit"
 
 	"github.com/fwiedmann/differ/pkg/registries/worker"
 
 	log "github.com/sirupsen/logrus"
-
-	"github.com/fwiedmann/differ/pkg/event"
 )
 
-func newRegistry(informChan chan<- event.Tag) *registry {
+func newRegistry(informChan chan<- worker.Event) *registry {
 	return &registry{
-		imageWorkers: make(map[string]*worker.ImageWorker),
+		imageWorkers: make(map[string]*worker.Worker),
 		mutex:        sync.RWMutex{},
 		informChan:   informChan,
 		rateLimiter:  ratelimit.New(5),
@@ -47,13 +47,13 @@ func newRegistry(informChan chan<- event.Tag) *registry {
 }
 
 type registry struct {
-	imageWorkers map[string]*worker.ImageWorker
+	imageWorkers map[string]*worker.Worker
 	mutex        sync.RWMutex
-	informChan   chan<- event.Tag
+	informChan   chan<- worker.Event
 	rateLimiter  ratelimit.Limiter
 }
 
-func (r *registry) addOrUpdateImage(ctx context.Context, obj event.ObservedKubernetesAPIObjectEvent) {
+func (r *registry) addOrUpdateImage(ctx context.Context, obj observer.ImageWithKubernetesMetadata) {
 	imageName := obj.ImageWithPullSecrets.GetNameWithRegistry()
 	if r.imageIsNotStoredYet(imageName) {
 		r.createNewImageWorkerEntry(ctx, imageName)
@@ -81,7 +81,7 @@ func (r *registry) createNewImageWorkerEntry(ctx context.Context, imageName stri
 	r.mutex.Unlock()
 }
 
-func (r *registry) deleteImage(obj event.ObservedKubernetesAPIObjectEvent) {
+func (r *registry) deleteImage(obj observer.ImageWithKubernetesMetadata) {
 	imageName := obj.ImageWithPullSecrets.GetNameWithRegistry()
 	r.mutex.RLock()
 	correspondingImageWorkerForObject, found := r.imageWorkers[imageName]

@@ -32,9 +32,23 @@ import (
 
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/fwiedmann/differ/pkg/event"
 	"k8s.io/client-go/kubernetes"
 )
+
+type registriesStore struct {
+}
+
+func (r registriesStore) AddImage(ctx context.Context, obj ImageWithKubernetesMetadata) {
+	return
+}
+
+func (r registriesStore) UpdateImage(ctx context.Context, obj ImageWithKubernetesMetadata) {
+	return
+}
+
+func (r registriesStore) DeleteImage(obj ImageWithKubernetesMetadata) {
+	return
+}
 
 func newFakeKubernetesClient() kubernetes.Interface {
 	return fake.NewSimpleClientset()
@@ -44,24 +58,24 @@ func newFakeObserverConfig() Config {
 	fakeKubernetesClient := newFakeKubernetesClient()
 
 	return Config{
-		namespaceToScrape:                    testNamespace,
-		kubernetesAPIClient:                  fakeKubernetesClient,
-		eventGenerator:                       event.NewGenerator(fakeKubernetesClient, testNamespace),
-		KubernetesEventCommunicationChannels: event.NewCommunicationChannels(1),
+		namespaceToScrape:   testNamespace,
+		kubernetesAPIClient: fakeKubernetesClient,
+		eventGenerator:      NewGenerator(fakeKubernetesClient, testNamespace),
+		registryStore:       registriesStore{},
 	}
 }
 
 func TestNewObserverConfig(t *testing.T) {
 	fakeKubernetesClient := newFakeKubernetesClient()
 	testNamespace := "default"
-	testCommunicationChannels := event.NewCommunicationChannels(1)
-	testEventGenerator := event.NewGenerator(fakeKubernetesClient, testNamespace)
+	testRegistriesStore := registriesStore{}
+	testEventGenerator := NewGenerator(fakeKubernetesClient, testNamespace)
 
 	type args struct {
-		namespaceToScrape                    string
-		kubernetesAPIClient                  kubernetes.Interface
-		kubernetesEventCommunicationChannels event.KubernetesEventCommunicationChannels
-		eventGenerator                       *event.Generator
+		namespaceToScrape   string
+		kubernetesAPIClient kubernetes.Interface
+		registriesStore     RegistriesStore
+		eventGenerator      *Generator
 	}
 	tests := []struct {
 		name string
@@ -71,22 +85,22 @@ func TestNewObserverConfig(t *testing.T) {
 		{
 			name: "WithValidConfigArguments",
 			args: args{
-				namespaceToScrape:                    testNamespace,
-				kubernetesAPIClient:                  fakeKubernetesClient,
-				kubernetesEventCommunicationChannels: testCommunicationChannels,
-				eventGenerator:                       testEventGenerator,
+				namespaceToScrape:   testNamespace,
+				kubernetesAPIClient: fakeKubernetesClient,
+				registriesStore:     testRegistriesStore,
+				eventGenerator:      testEventGenerator,
 			},
 			want: Config{
-				kubernetesAPIClient:                  fakeKubernetesClient,
-				eventGenerator:                       testEventGenerator,
-				namespaceToScrape:                    testNamespace,
-				KubernetesEventCommunicationChannels: testCommunicationChannels,
+				kubernetesAPIClient: fakeKubernetesClient,
+				eventGenerator:      testEventGenerator,
+				namespaceToScrape:   testNamespace,
+				registryStore:       testRegistriesStore,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewObserverConfig(tt.args.namespaceToScrape, tt.args.kubernetesAPIClient, tt.args.kubernetesEventCommunicationChannels, tt.args.eventGenerator); !reflect.DeepEqual(got, tt.want) {
+			if got := NewObserverConfig(tt.args.namespaceToScrape, tt.args.kubernetesAPIClient, tt.args.eventGenerator, tt.args.registriesStore); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewObserverConfig() = %v, want %v", got, tt.want)
 			}
 		})

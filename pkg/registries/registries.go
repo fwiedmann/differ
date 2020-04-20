@@ -28,23 +28,26 @@ import (
 	"context"
 	"sync"
 
-	"github.com/fwiedmann/differ/pkg/event"
+	"github.com/fwiedmann/differ/pkg/observer"
+
+	"github.com/fwiedmann/differ/pkg/registries/worker"
+
 	log "github.com/sirupsen/logrus"
 )
 
 type Store struct {
 	instances    *sync.Map
-	informerChan chan<- event.Tag
+	informerChan chan<- worker.Event
 }
 
-func NewRegistriesStore(informerChan chan<- event.Tag) Store {
-	return Store{
+func NewRegistriesStore(informerChan chan<- worker.Event) *Store {
+	return &Store{
 		instances:    &sync.Map{},
 		informerChan: informerChan,
 	}
 }
 
-func (s *Store) AddImage(ctx context.Context, obj event.ObservedKubernetesAPIObjectEvent) {
+func (s *Store) AddImage(ctx context.Context, obj observer.ImageWithKubernetesMetadata) {
 	registryURL := obj.ImageWithPullSecrets.GetRegistryURL()
 	if s.registryIsNotInStoreYet(registryURL) {
 		s.instances.Store(registryURL, newRegistry(s.informerChan))
@@ -65,7 +68,7 @@ func (s *Store) registryIsNotInStoreYet(registryURL string) bool {
 	return false
 }
 
-func (s *Store) UpdateImage(ctx context.Context, obj event.ObservedKubernetesAPIObjectEvent) {
+func (s *Store) UpdateImage(ctx context.Context, obj observer.ImageWithKubernetesMetadata) {
 	correspondingRegistryOfImage, found := s.instances.Load(obj.ImageWithPullSecrets.GetRegistryURL())
 	if !found {
 		log.Errorf("tried to update image for object with uuid \"%s\" but corresponding registries \"%s\" does not exists", obj.GetUID(), obj.ImageWithPullSecrets.GetRegistryURL())
@@ -75,7 +78,7 @@ func (s *Store) UpdateImage(ctx context.Context, obj event.ObservedKubernetesAPI
 	r.addOrUpdateImage(ctx, obj)
 }
 
-func (s *Store) DeleteImage(obj event.ObservedKubernetesAPIObjectEvent) {
+func (s *Store) DeleteImage(obj observer.ImageWithKubernetesMetadata) {
 	correspondingRegistryOfImage, found := s.instances.Load(obj.ImageWithPullSecrets.GetRegistryURL())
 	if !found {
 		log.Errorf("tried to delete image for object with uuid \"%s\" but corresponding registries \"%s\" does not exists", obj.GetUID(), obj.ImageWithPullSecrets.GetRegistryURL())

@@ -52,5 +52,5 @@ func (ps PullSecret) String() string {
 	for i := 0; i < len(ps.password); i++ {
 		stars += "*"
 	}
-	return fmt.Sprintf("username: %s, password: %s", ps.Username, stars)
+	return fmt.Sprintf("username: %s, password: %s", ps.Username(), stars)
 }
