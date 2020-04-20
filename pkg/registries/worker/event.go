@@ -22,24 +22,19 @@
  * SOFTWARE.
  */
 
-package event
+package worker
 
-func NewTag(latestTag string, objs []ObservedKubernetesAPIObjectEvent) Tag {
-	return Tag{
-		latestTagForImage:   latestTag,
-		objectsWithOlderTag: objs,
-	}
+import (
+	"github.com/fwiedmann/differ/pkg/observer"
+)
+
+// Event describes that for the given ObservedKubernetesAPIObjectEvent a newer image tag exists
+type Event struct {
+	observer.ImageWithKubernetesMetadata
+	latestTag string
 }
 
-type Tag struct {
-	objectsWithOlderTag []ObservedKubernetesAPIObjectEvent
-	latestTagForImage   string
-}
-
-func (t *Tag) GetTag() string {
-	return t.latestTagForImage
-}
-
-func (t *Tag) GetKubernetesAPIObjectsWhichHaveOlderTags() []ObservedKubernetesAPIObjectEvent {
-	return t.objectsWithOlderTag
+// GeLatestTag returns the latest/newest tag for the given ObservedKubernetesAPIObjectEvent of the Event
+func (e *Event) GeLatestTag() string {
+	return e.latestTag
 }
