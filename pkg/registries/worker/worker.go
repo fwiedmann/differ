@@ -111,13 +111,14 @@ func (w *Worker) requestTagsFromAPIWithAllStoredObjects(ctx context.Context) ([]
 				return tags, nil
 			}
 			latestError = err
-		} else {
-			tags, err := w.requestTagsFromAPIWithSecrets(ctx, obj.ImageWithPullSecrets.GetPullSecrets())
-			if err == nil {
-				return tags, nil
-			}
-			latestError = err
+			continue
 		}
+
+		tags, err := w.requestTagsFromAPIWithSecrets(ctx, obj.ImageWithPullSecrets.GetPullSecrets())
+		if err == nil {
+			return tags, nil
+		}
+		latestError = err
 	}
 	return nil, fmt.Errorf("could not fetch any tags for image %s, error: %s", imageName, latestError)
 }

@@ -41,7 +41,7 @@ type EventGenerator interface {
 	GenerateEventsFromPodSpec(podSpec v1.PodSpec, kubernetesMetaInformation KubernetesAPIObjectMetaInformation) ([]ImageWithKubernetesMetadata, error)
 }
 
-// RegistriesStore handle the events observed by the kubernetes shared informer
+// RegistriesStore handle concurrent events observed by the kubernetes shared informer
 type RegistriesStore interface {
 	AddImage(ctx context.Context, obj ImageWithKubernetesMetadata)
 	UpdateImage(ctx context.Context, obj ImageWithKubernetesMetadata)
