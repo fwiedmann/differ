@@ -22,35 +22,18 @@
  * SOFTWARE.
  */
 
-package image
+package oci_registry
 
-import "fmt"
+import (
+	"go.uber.org/ratelimit"
+)
 
-func NewPullSecret(username, password string) PullSecret {
-	return PullSecret{
-		username: username,
-		password: password,
-	}
-}
+var (
+	registryRateLimits map[string]ratelimit.Limiter
+)
 
-type PullSecret struct {
-	username string
-	password string
-}
-
-func (ps PullSecret) GetUsername() string {
-	return ps.username
-}
-
-func (ps PullSecret) GetPassword() string {
-	return ps.password
-}
-
-func (ps PullSecret) String() string {
-	var stars string
-
-	for i := 0; i < len(ps.password); i++ {
-		stars += "*"
-	}
-	return fmt.Sprintf("username: %s, password: %s", ps.GetUsername(), stars)
+func createRateLimitForRegistry(registry string) ratelimit.Limiter {
+	rl := ratelimit.New(5)
+	registryRateLimits[registry] = rl
+	return rl
 }

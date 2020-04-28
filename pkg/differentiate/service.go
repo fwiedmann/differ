@@ -22,35 +22,14 @@
  * SOFTWARE.
  */
 
-package image
+package differentiate
 
-import "fmt"
+import "context"
 
-func NewPullSecret(username, password string) PullSecret {
-	return PullSecret{
-		username: username,
-		password: password,
-	}
-}
-
-type PullSecret struct {
-	username string
-	password string
-}
-
-func (ps PullSecret) GetUsername() string {
-	return ps.username
-}
-
-func (ps PullSecret) GetPassword() string {
-	return ps.password
-}
-
-func (ps PullSecret) String() string {
-	var stars string
-
-	for i := 0; i < len(ps.password); i++ {
-		stars += "*"
-	}
-	return fmt.Sprintf("username: %s, password: %s", ps.GetUsername(), stars)
+type Service interface {
+	AddImage(ctx context.Context, image *Image) error
+	DeleteImage(ctx context.Context, image *Image) error
+	UpdateImage(ctx context.Context, image *Image) error
+	ListImage(ctx context.Context, opts *ListOptions) ([]Image, error)
+	Notify(event chan<- NotificationEvent)
 }

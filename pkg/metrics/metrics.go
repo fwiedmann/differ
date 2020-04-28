@@ -179,7 +179,6 @@ func StartMetricsEndpoint(o config.MetricsEndpoint) error {
 
 	server := http.NewServeMux()
 	server.Handle(o.Path, promhttp.HandlerFor(promRegistry, promhttp.HandlerOpts{}))
-
 	if err := http.ListenAndServe(":"+strconv.Itoa(o.Port), server); err != nil {
 		return err
 	}

@@ -22,35 +22,49 @@
  * SOFTWARE.
  */
 
-package image
+package differentiate
 
 import "fmt"
 
-func NewPullSecret(username, password string) PullSecret {
-	return PullSecret{
-		username: username,
-		password: password,
-	}
-}
-
 type PullSecret struct {
-	username string
-	password string
+	Username string
+	Password string
 }
 
-func (ps PullSecret) GetUsername() string {
-	return ps.username
+func (p PullSecret) GetUsername() string {
+	return p.Username
 }
 
-func (ps PullSecret) GetPassword() string {
-	return ps.password
+func (p PullSecret) GetPassword() string {
+	return p.Password
 }
 
-func (ps PullSecret) String() string {
-	var stars string
+type Image struct {
+	ID       string
+	Registry string
+	Name     string
+	Tag      string
+	Auth     []*PullSecret
+}
 
-	for i := 0; i < len(ps.password); i++ {
-		stars += "*"
-	}
-	return fmt.Sprintf("username: %s, password: %s", ps.GetUsername(), stars)
+func (i Image) GetNameWithoutRegistry() string {
+	return i.Name
+}
+
+func (i Image) GetNameWithRegistry() string {
+	return fmt.Sprintf("%s/%s", i.Registry, i.Name)
+}
+
+func (i Image) GetRegistryURL() string {
+	return i.Registry
+}
+
+type ListOptions struct {
+	ImageName string
+	Registry  string
+}
+
+type NotificationEvent struct {
+	Image  Image
+	NewTag string
 }

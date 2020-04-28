@@ -30,6 +30,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -60,8 +61,8 @@ type Image interface {
 
 // PullSecret is the interface that wraps a pull secret representation with a username and password.
 type PullSecret interface {
-	Username() string
-	Password() string
+	GetUsername() string
+	GetPassword() string
 }
 
 // Client requests a  registry of a given image. If  pull secret is nil it will request the registry without basic-auth.
@@ -171,7 +172,7 @@ func (c *Client) getBearerTokenFromRealm(ctx context.Context, realmURL string, s
 	}
 
 	if secret != nil {
-		req.SetBasicAuth(secret.Username(), secret.Username())
+		req.SetBasicAuth(secret.GetUsername(), secret.GetUsername())
 	}
 
 	resp, err := c.Do(req)
@@ -238,4 +239,45 @@ func (c *Client) getTags(ctx context.Context) ([]string, error) {
 
 func (c *Client) generateGetTagsURL() string {
 	return fmt.Sprintf("https://%s/%s/%s/tags/list", c.image.GetRegistryURL(), dockerRegistryVersion, c.image.GetNameWithoutRegistry())
+}
+
+const (
+	urlRegex     = "https://[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)"
+	serviceRegex = "\"(.*?)\""
+)
+
+func handleResponseCodeOfResponse(resp *http.Response) error {
+	switch {
+	case resp.StatusCode == http.StatusUnauthorized:
+		return newPermissionsError(nil, "registries/api status %s on requesting %s, please check your permissions", resp.Status, resp.Request.URL.String())
+	case resp.StatusCode == http.StatusForbidden:
+		return newPermissionsError(nil, "registries/api status %s on requesting %s, please check your permissions", resp.Status, resp.Request.URL.String())
+	case resp.StatusCode >= 300:
+		return newAPIErrorF(nil, "registries/api status %s on requesting %s", resp.Status, resp.Request.URL.String())
+	default:
+		return nil
+	}
+}
+
+func isValidHeader(headerRegex, header string) bool {
+	r := regexp.MustCompile(headerRegex)
+	return r.MatchString(header)
+}
+
+func extractRealmURL(header string) (string, error) {
+	r := regexp.MustCompile(urlRegex)
+	url := r.FindString(header)
+	if url == "" {
+		return "", newAPIErrorF(nil, "header '%s' does not contain a valid URL", header)
+	}
+	return url, nil
+}
+
+func extractService(header string) (string, error) {
+	r := regexp.MustCompile(serviceRegex)
+	service := r.FindString(header)
+	if service == "" {
+		return "", newAPIErrorF(nil, "header '%s' does not contain a valid URL", header)
+	}
+	return strings.Replace(service, "\"", "", -1), nil
 }

@@ -22,19 +22,13 @@
  * SOFTWARE.
  */
 
-package worker
+package differentiate
 
-import (
-	"github.com/fwiedmann/differ/pkg/observer"
-)
+import "context"
 
-// Event describes that for the given ObservedKubernetesAPIObjectEvent a newer image tag exists
-type Event struct {
-	observer.ImageWithKubernetesMetadata
-	latestTag string
-}
-
-// GeLatestTag returns the latest/newest tag for the given ObservedKubernetesAPIObjectEvent of the Event
-func (e *Event) GeLatestTag() string {
-	return e.latestTag
+type Repository interface {
+	AddImage(ctx context.Context, image *Image) error
+	DeleteImage(ctx context.Context, image *Image) error
+	UpdateImage(ctx context.Context, image *Image) error
+	ListImages(ctx context.Context, opts *ListOptions) ([]Image, error)
 }
