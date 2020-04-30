@@ -22,26 +22,26 @@
  * SOFTWARE.
  */
 
-package oci_registry
+package differentiate
 
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"sync"
-	"time"
-
-	"github.com/fwiedmann/differ/pkg/differentiate"
-	"github.com/fwiedmann/differ/pkg/differentiate/oci-registry/api"
 
 	tags_analyzer "github.com/fwiedmann/differ/pkg/tags-analyzer"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/ratelimit"
 )
 
-func StartNewImageWorker(ctx context.Context, registry, imageName string, rateLimiter ratelimit.Limiter, info chan<- differentiate.NotificationEvent, repository differentiate.Repository) *Worker {
+type OciRegistryAPIClient interface {
+	GetTagsForImage(ctx context.Context, secret OciPullSecret) ([]string, error)
+}
+
+func StartNewImageWorker(ctx context.Context, client OciRegistryAPIClient, registry, imageName string, rateLimiter ratelimit.Limiter, info chan<- NotificationEvent, repository Repository) *Worker {
 
 	newWorker := Worker{
+		client:      client,
 		registry:    imageName,
 		imageName:   registry,
 		rp:          repository,
@@ -56,11 +56,11 @@ func StartNewImageWorker(ctx context.Context, registry, imageName string, rateLi
 type Worker struct {
 	imageName   string
 	registry    string
-	rp          differentiate.Repository
+	rp          Repository
 	mutex       sync.RWMutex
-	informChan  chan<- differentiate.NotificationEvent
+	informChan  chan<- NotificationEvent
 	rateLimiter ratelimit.Limiter
-	client      *api.Client
+	client      OciRegistryAPIClient
 }
 
 func (w *Worker) startRunning(ctx context.Context) {
@@ -69,7 +69,7 @@ func (w *Worker) startRunning(ctx context.Context) {
 imageWorkerRoutine:
 	for {
 
-		images, err := w.rp.ListImages(imageWorkerCtx, &differentiate.ListOptions{
+		images, err := w.rp.ListImages(imageWorkerCtx, &ListOptions{
 			ImageName: w.imageName,
 			Registry:  w.registry,
 		})
@@ -81,10 +81,6 @@ imageWorkerRoutine:
 
 		if len(images) == 0 {
 			continue
-		}
-
-		if w.client == nil {
-			w.client = api.New(http.Client{Timeout: time.Second * 10}, images[0])
 		}
 
 		select {
@@ -106,7 +102,7 @@ imageWorkerRoutine:
 	}
 }
 
-func (w *Worker) requestTagsFromAPIWithAllStoredObjects(ctx context.Context, imgs []differentiate.Image) ([]string, error) {
+func (w *Worker) requestTagsFromAPIWithAllStoredObjects(ctx context.Context, imgs []Image) ([]string, error) {
 	var imageName string
 	var latestError error
 	for _, img := range imgs {
@@ -129,7 +125,7 @@ func (w *Worker) requestTagsFromAPIWithAllStoredObjects(ctx context.Context, img
 	return nil, fmt.Errorf("could not fetch any tags for image %s, error: %s", imageName, latestError)
 }
 
-func (w *Worker) requestTagsFromAPIWithSecrets(ctx context.Context, secrets []*differentiate.PullSecret) ([]string, error) {
+func (w *Worker) requestTagsFromAPIWithSecrets(ctx context.Context, secrets []*PullSecret) ([]string, error) {
 	for i, secret := range secrets {
 		tags, err := w.requestTagsWithRateLimit(ctx, secret)
 		if err != nil {
@@ -143,18 +139,18 @@ func (w *Worker) requestTagsFromAPIWithSecrets(ctx context.Context, secrets []*d
 	return nil, fmt.Errorf("no pull secrets provided to request")
 }
 
-func (w *Worker) requestTagsWithRateLimit(ctx context.Context, s *differentiate.PullSecret) ([]string, error) {
+func (w *Worker) requestTagsWithRateLimit(ctx context.Context, s *PullSecret) ([]string, error) {
 	w.rateLimiter.Take()
 	return w.client.GetTagsForImage(ctx, s)
 }
 
-func (w *Worker) sendEventForEachStoredObjectIfNewerTagExits(allTagsFromRegistry []string, imgs []differentiate.Image) {
+func (w *Worker) sendEventForEachStoredObjectIfNewerTagExits(allTagsFromRegistry []string, imgs []Image) {
 	for _, img := range imgs {
 		go w.sendEventForStoredObjectIfNewerTagExits(img, allTagsFromRegistry)
 	}
 }
 
-func (w *Worker) sendEventForStoredObjectIfNewerTagExits(img differentiate.Image, allTagsFromRegistry []string) {
+func (w *Worker) sendEventForStoredObjectIfNewerTagExits(img Image, allTagsFromRegistry []string) {
 	tagExpr, err := tags_analyzer.GetRegexExprForTag(img.Tag)
 	if err != nil {
 		log.Errorf("could not get a tag expression for image %s with tag %s", img.GetNameWithRegistry(), img.Tag)
@@ -170,5 +166,5 @@ func (w *Worker) sendEventForStoredObjectIfNewerTagExits(img differentiate.Image
 		return
 	}
 
-	w.informChan <- differentiate.NotificationEvent{Image: img, NewTag: latestTag}
+	w.informChan <- NotificationEvent{Image: img, NewTag: latestTag}
 }

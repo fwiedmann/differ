@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package api
+package differentiate
 
 import (
 	"context"
@@ -52,38 +52,38 @@ type tagList struct {
 	Tags []string `json:"tags"`
 }
 
-// Image is the interface that wraps a image representation and its required information in a formatted format
+// OciImage is the interface that wraps a image representation and its required information in a formatted format
 // that the client requires for different kind of API calls
-type Image interface {
+type OciImage interface {
 	GetNameWithoutRegistry() string
 	GetRegistryURL() string
 }
 
-// PullSecret is the interface that wraps a pull secret representation with a username and password.
-type PullSecret interface {
+// OciPullSecret is the interface that wraps a pull secret representation with a username and password.
+type OciPullSecret interface {
 	GetUsername() string
 	GetPassword() string
 }
 
-// Client requests a  registry of a given image. If  pull secret is nil it will request the registry without basic-auth.
+// OCIRegistryAPIClient requests a  registry of a given image. If  pull secret is nil it will request the registry without basic-auth.
 // The stores a bearer token to avoid unnecessary traffic and registry restrictions of max login. If an API call code is 401 or 403
 // the client return a PermissionsError, else a ClientAPIError.
-type Client struct {
-	image       Image
+type OCIRegistryAPIClient struct {
+	image       OciImage
 	bearerToken string
 	http.Client
 }
 
-// New image registry API client which will store the bearer token for authorization
-func New(c http.Client, img Image) *Client {
-	return &Client{
+// NewOCIAPIClient image registry API client which will store the bearer token for authorization
+func NewOCIAPIClient(c http.Client, img OciImage) *OCIRegistryAPIClient {
+	return &OCIRegistryAPIClient{
 		image:  img,
 		Client: c,
 	}
 }
 
 // GetTagsForImage for configured client. If secret is nil the request will omit the BasicAuth HTTP header
-func (c *Client) GetTagsForImage(ctx context.Context, secret PullSecret) ([]string, error) {
+func (c *OCIRegistryAPIClient) GetTagsForImage(ctx context.Context, secret OciPullSecret) ([]string, error) {
 	if c.bearerToken == "" {
 		err := c.getBearerToken(ctx, secret)
 		if err != nil {
@@ -103,7 +103,7 @@ func (c *Client) GetTagsForImage(ctx context.Context, secret PullSecret) ([]stri
 	return tags, err
 }
 
-func (c *Client) getBearerToken(ctx context.Context, secret PullSecret) error {
+func (c *OCIRegistryAPIClient) getBearerToken(ctx context.Context, secret OciPullSecret) error {
 	realmURL, err := c.getRealmURLFromImageRegistry(ctx)
 	if err != nil {
 		return err
@@ -118,7 +118,7 @@ func (c *Client) getBearerToken(ctx context.Context, secret PullSecret) error {
 	return nil
 }
 
-func (c *Client) getRealmURLFromImageRegistry(ctx context.Context) (url string, err error) {
+func (c *OCIRegistryAPIClient) getRealmURLFromImageRegistry(ctx context.Context) (url string, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+c.image.GetRegistryURL()+"/"+dockerRegistryVersion, nil)
 	if err != nil {
 		return "", newAPIErrorF(err, "registries/api error: %s", err)
@@ -161,11 +161,11 @@ func (c *Client) getRealmURLFromImageRegistry(ctx context.Context) (url string, 
 	return c.generateRealmURLWithService(realm, service), nil
 }
 
-func (c *Client) generateRealmURLWithService(realm, service string) string {
+func (c *OCIRegistryAPIClient) generateRealmURLWithService(realm, service string) string {
 	return fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", realm, service, c.image.GetNameWithoutRegistry())
 }
 
-func (c *Client) getBearerTokenFromRealm(ctx context.Context, realmURL string, secret PullSecret) (token string, err error) {
+func (c *OCIRegistryAPIClient) getBearerTokenFromRealm(ctx context.Context, realmURL string, secret OciPullSecret) (token string, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, realmURL, nil)
 	if err != nil {
 		return "", newAPIErrorF(err, "registries/api error: %s", err)
@@ -201,7 +201,7 @@ func (c *Client) getBearerTokenFromRealm(ctx context.Context, realmURL string, s
 	return t.Token, nil
 }
 
-func (c *Client) getTags(ctx context.Context) ([]string, error) {
+func (c *OCIRegistryAPIClient) getTags(ctx context.Context) ([]string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.generateGetTagsURL(), nil)
 	if err != nil {
 		return nil, newAPIErrorF(err, "registries/api error: %s", err)
@@ -237,7 +237,7 @@ func (c *Client) getTags(ctx context.Context) ([]string, error) {
 	return tags.Tags, nil
 }
 
-func (c *Client) generateGetTagsURL() string {
+func (c *OCIRegistryAPIClient) generateGetTagsURL() string {
 	return fmt.Sprintf("https://%s/%s/%s/tags/list", c.image.GetRegistryURL(), dockerRegistryVersion, c.image.GetNameWithoutRegistry())
 }
 

@@ -22,46 +22,18 @@
  * SOFTWARE.
  */
 
-package api
+package differentiate
 
-import "fmt"
+import (
+	"go.uber.org/ratelimit"
+)
 
-// ClientAPIError represents a error for calls to a registries API
-type ClientAPIError struct {
-	message string
-	Err     error
-}
+var (
+	registryRateLimits map[string]ratelimit.Limiter
+)
 
-func newAPIErrorF(err error, format string, a ...interface{}) ClientAPIError {
-	return ClientAPIError{Err: err, message: fmt.Sprintf(format, a...)}
-}
-
-// Error implements the error interface
-func (e ClientAPIError) Error() string {
-	return e.message
-}
-
-// Unwrap support for wrapping errors
-func (e ClientAPIError) Unwrap() error {
-	return e.Err
-}
-
-func newPermissionsError(err error, format string, a ...interface{}) PermissionsError {
-	return PermissionsError{Err: err, message: fmt.Sprintf(format, a...)}
-}
-
-// PermissionsError represents a error for http status codes 401 or 403
-type PermissionsError struct {
-	message string
-	Err     error
-}
-
-// Error implements the error interface
-func (pe PermissionsError) Error() string {
-	return pe.message
-}
-
-// Unwrap support for wrapping errors
-func (pe PermissionsError) Unwrap() error {
-	return pe.Err
+func createRateLimitForRegistry(registry string) ratelimit.Limiter {
+	rl := ratelimit.New(5)
+	registryRateLimits[registry] = rl
+	return rl
 }

@@ -22,18 +22,18 @@
  * SOFTWARE.
  */
 
-package oci_registry
+package differentiate
 
 import (
 	"context"
-
-	"github.com/fwiedmann/differ/pkg/differentiate"
+	"net/http"
+	"time"
 )
 
-func NewOCIRegistryService(ctx context.Context, rp differentiate.Repository) differentiate.Service {
+func NewOCIRegistryService(ctx context.Context, rp Repository) Service {
 	ors := &OCIRegistryService{
 		rp:                 rp,
-		workerNotification: make(chan differentiate.NotificationEvent, 100),
+		workerNotification: make(chan NotificationEvent, 100),
 	}
 	go ors.multiplexToNotifiers(ctx)
 
@@ -41,13 +41,13 @@ func NewOCIRegistryService(ctx context.Context, rp differentiate.Repository) dif
 }
 
 type OCIRegistryService struct {
-	rp                 differentiate.Repository
+	rp                 Repository
 	workers            map[string]*Worker
-	notifiers          []chan<- differentiate.NotificationEvent
-	workerNotification chan differentiate.NotificationEvent
+	notifiers          []chan<- NotificationEvent
+	workerNotification chan NotificationEvent
 }
 
-func (O *OCIRegistryService) AddImage(ctx context.Context, image *differentiate.Image) error {
+func (O *OCIRegistryService) AddImage(ctx context.Context, image *Image) error {
 
 	if err := O.rp.AddImage(ctx, image); err != nil {
 		return err
@@ -56,25 +56,25 @@ func (O *OCIRegistryService) AddImage(ctx context.Context, image *differentiate.
 	var w *Worker
 	w, found := O.workers[image.Registry]
 	if !found {
-		w = StartNewImageWorker(ctx, image.Registry, image.Name, createRateLimitForRegistry(image.Registry), O.workerNotification, O.rp)
+		w = StartNewImageWorker(ctx, NewOCIAPIClient(http.Client{Timeout: time.Second * 10}, image), image.Registry, image.Name, createRateLimitForRegistry(image.Registry), O.workerNotification, O.rp)
 		O.workers[image.Registry] = w
 	}
 	return nil
 }
 
-func (O *OCIRegistryService) DeleteImage(ctx context.Context, image *differentiate.Image) error {
+func (O *OCIRegistryService) DeleteImage(ctx context.Context, image *Image) error {
 	return O.rp.DeleteImage(ctx, image)
 }
 
-func (O *OCIRegistryService) UpdateImage(ctx context.Context, image *differentiate.Image) error {
+func (O *OCIRegistryService) UpdateImage(ctx context.Context, image *Image) error {
 	return O.rp.UpdateImage(ctx, image)
 }
 
-func (O *OCIRegistryService) ListImage(ctx context.Context, opts *differentiate.ListOptions) ([]differentiate.Image, error) {
+func (O *OCIRegistryService) ListImage(ctx context.Context, opts *ListOptions) ([]Image, error) {
 	return O.rp.ListImages(ctx, opts)
 }
 
-func (O *OCIRegistryService) Notify(event chan<- differentiate.NotificationEvent) {
+func (O *OCIRegistryService) Notify(event chan<- NotificationEvent) {
 	O.notifiers = append(O.notifiers, event)
 }
 
@@ -94,7 +94,7 @@ func (O *OCIRegistryService) multiplexToNotifiers(ctx context.Context) {
 	}
 }
 
-func closeChannels(c []chan<- differentiate.NotificationEvent) {
+func closeChannels(c []chan<- NotificationEvent) {
 	for _, ch := range c {
 		close(ch)
 	}
