@@ -86,7 +86,7 @@ func TestStartNewImageWorker(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want OCIWorker
+		want *Worker
 	}{
 		{
 			name: "ValidStartNewImageWorkerFun",

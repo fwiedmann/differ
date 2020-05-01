@@ -29,19 +29,13 @@ import (
 	"net/http"
 	"sync"
 	"time"
-
-	"go.uber.org/ratelimit"
 )
 
-type OCIWorker interface {
-	Stop()
-}
-
-func NewOCIRegistryService(ctx context.Context, rp Repository, startWorker func(ctx context.Context, client OciRegistryAPIClient, registry, imageName string, rateLimiter ratelimit.Limiter, info chan<- NotificationEvent, repository ListImagesRepository) OCIWorker) Service {
+func NewOCIRegistryService(ctx context.Context, rp Repository, initOCIAPIClientFun func(c http.Client, img OciImage) *OCIRegistryAPIClient) Service {
 	ors := &OCIRegistryService{
-		rp:                 rp,
-		workerNotification: make(chan NotificationEvent, 100),
-		startWorkerFun:     startWorker,
+		rp:                  rp,
+		workerNotification:  make(chan NotificationEvent, 100),
+		initOCIAPIClientFun: initOCIAPIClientFun,
 	}
 	go ors.multiplexToNotifiers(ctx)
 
@@ -49,12 +43,12 @@ func NewOCIRegistryService(ctx context.Context, rp Repository, startWorker func(
 }
 
 type OCIRegistryService struct {
-	rp                 Repository
-	workers            map[string]OCIWorker
-	notifiers          []chan<- NotificationEvent
-	workerNotification chan NotificationEvent
-	workerMtx          sync.Mutex
-	startWorkerFun     func(ctx context.Context, client OciRegistryAPIClient, registry, imageName string, rateLimiter ratelimit.Limiter, info chan<- NotificationEvent, repository ListImagesRepository) OCIWorker
+	rp                  Repository
+	workers             map[string]*Worker
+	notifiers           []chan<- NotificationEvent
+	workerNotification  chan NotificationEvent
+	workerMtx           sync.Mutex
+	initOCIAPIClientFun func(c http.Client, img OciImage) *OCIRegistryAPIClient
 }
 
 func (O *OCIRegistryService) AddImage(ctx context.Context, image Image) error {
@@ -66,7 +60,10 @@ func (O *OCIRegistryService) AddImage(ctx context.Context, image Image) error {
 	_, found := O.workers[image.GetNameWithRegistry()]
 	if !found {
 		O.workerMtx.Lock()
-		O.workers[image.GetNameWithRegistry()] = O.startWorkerFun(ctx, NewOCIAPIClient(http.Client{Timeout: time.Second * 10}, image), image.Registry, image.Name, createRateLimitForRegistry(image.Registry), O.workerNotification, O.rp)
+		httpClient := http.Client{
+			Timeout: time.Second * 10,
+		}
+		O.workers[image.GetNameWithRegistry()] = StartNewImageWorker(ctx, O.initOCIAPIClientFun(httpClient, image), image.Registry, image.Name, createRateLimitForRegistry(image.Registry), O.workerNotification, O.rp)
 		O.workerMtx.Unlock()
 	}
 	return nil

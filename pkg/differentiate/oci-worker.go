@@ -42,7 +42,7 @@ type ListImagesRepository interface {
 	ListImages(ctx context.Context, opts ListOptions) ([]Image, error)
 }
 
-func StartNewImageWorker(ctx context.Context, client OciRegistryAPIClient, registry, imageName string, rateLimiter ratelimit.Limiter, info chan<- NotificationEvent, repository ListImagesRepository) OCIWorker {
+func StartNewImageWorker(ctx context.Context, client OciRegistryAPIClient, registry, imageName string, rateLimiter ratelimit.Limiter, info chan<- NotificationEvent, repository ListImagesRepository) *Worker {
 
 	newWorker := Worker{
 		client:      client,
