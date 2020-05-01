@@ -34,16 +34,16 @@ import (
 
 func NewMemoryStorage() *Storage {
 	return &Storage{
-		images: make(map[string]*differentiate.Image),
+		images: make(map[string]differentiate.Image),
 	}
 }
 
 type Storage struct {
 	mtx    sync.RWMutex
-	images map[string]*differentiate.Image
+	images map[string]differentiate.Image
 }
 
-func (s *Storage) AddImage(ctx context.Context, img *differentiate.Image) error {
+func (s *Storage) AddImage(_ context.Context, img differentiate.Image) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
@@ -55,14 +55,14 @@ func (s *Storage) AddImage(ctx context.Context, img *differentiate.Image) error 
 	return nil
 }
 
-func (s *Storage) DeleteImage(ctx context.Context, img *differentiate.Image) error {
+func (s *Storage) DeleteImage(_ context.Context, img differentiate.Image) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	delete(s.images, img.ID)
 	return nil
 }
 
-func (s *Storage) UpdateImage(ctx context.Context, img *differentiate.Image) error {
+func (s *Storage) UpdateImage(_ context.Context, img differentiate.Image) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
@@ -70,8 +70,8 @@ func (s *Storage) UpdateImage(ctx context.Context, img *differentiate.Image) err
 	return nil
 }
 
-func (s *Storage) ListImages(ctx context.Context, opts *differentiate.ListOptions) ([]*differentiate.Image, error) {
-	var matchedImages []*differentiate.Image
+func (s *Storage) ListImages(_ context.Context, opts differentiate.ListOptions) ([]differentiate.Image, error) {
+	var matchedImages []differentiate.Image
 	for _, image := range s.images {
 		if (opts.ImageName == "" || opts.ImageName == image.Name) && (opts.Registry == "" || opts.Registry == image.Registry) {
 			matchedImages = append(matchedImages, image)

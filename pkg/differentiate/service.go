@@ -27,9 +27,9 @@ package differentiate
 import "context"
 
 type Service interface {
-	AddImage(ctx context.Context, image *Image) error
-	DeleteImage(ctx context.Context, image *Image) error
-	UpdateImage(ctx context.Context, image *Image) error
-	ListImage(ctx context.Context, opts *ListOptions) ([]Image, error)
+	AddImage(ctx context.Context, image Image) error
+	DeleteImage(ctx context.Context, image Image) error
+	UpdateImage(ctx context.Context, image Image) error
+	ListImages(ctx context.Context, opts ListOptions) ([]Image, error)
 	Notify(event chan<- NotificationEvent)
 }

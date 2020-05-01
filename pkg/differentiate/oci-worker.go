@@ -29,7 +29,7 @@ import (
 	"fmt"
 	"sync"
 
-	tags_analyzer "github.com/fwiedmann/differ/pkg/tags-analyzer"
+	tagsanalyzer "github.com/fwiedmann/differ/pkg/tags-analyzer"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/ratelimit"
 )
@@ -38,12 +38,16 @@ type OciRegistryAPIClient interface {
 	GetTagsForImage(ctx context.Context, secret OciPullSecret) ([]string, error)
 }
 
-func StartNewImageWorker(ctx context.Context, client OciRegistryAPIClient, registry, imageName string, rateLimiter ratelimit.Limiter, info chan<- NotificationEvent, repository Repository) *Worker {
+type ListImagesRepository interface {
+	ListImages(ctx context.Context, opts ListOptions) ([]Image, error)
+}
+
+func StartNewImageWorker(ctx context.Context, client OciRegistryAPIClient, registry, imageName string, rateLimiter ratelimit.Limiter, info chan<- NotificationEvent, repository ListImagesRepository) OCIWorker {
 
 	newWorker := Worker{
 		client:      client,
-		registry:    imageName,
-		imageName:   registry,
+		registry:    registry,
+		imageName:   imageName,
 		rp:          repository,
 		mutex:       sync.RWMutex{},
 		informChan:  info,
@@ -56,11 +60,19 @@ func StartNewImageWorker(ctx context.Context, client OciRegistryAPIClient, regis
 type Worker struct {
 	imageName   string
 	registry    string
-	rp          Repository
+	rp          ListImagesRepository
 	mutex       sync.RWMutex
 	informChan  chan<- NotificationEvent
 	rateLimiter ratelimit.Limiter
 	client      OciRegistryAPIClient
+	stop        chan struct{}
+}
+
+func (w *Worker) Stop() {
+	go func() {
+		w.stop <- struct{}{}
+	}()
+	close(w.stop)
 }
 
 func (w *Worker) startRunning(ctx context.Context) {
@@ -69,7 +81,7 @@ func (w *Worker) startRunning(ctx context.Context) {
 imageWorkerRoutine:
 	for {
 
-		images, err := w.rp.ListImages(imageWorkerCtx, &ListOptions{
+		images, err := w.rp.ListImages(imageWorkerCtx, ListOptions{
 			ImageName: w.imageName,
 			Registry:  w.registry,
 		})
@@ -85,6 +97,9 @@ imageWorkerRoutine:
 
 		select {
 		case <-imageWorkerCtx.Done():
+			cancel()
+			break imageWorkerRoutine
+		case <-w.stop:
 			cancel()
 			break imageWorkerRoutine
 		default:
@@ -151,13 +166,13 @@ func (w *Worker) sendEventForEachStoredObjectIfNewerTagExits(allTagsFromRegistry
 }
 
 func (w *Worker) sendEventForStoredObjectIfNewerTagExits(img Image, allTagsFromRegistry []string) {
-	tagExpr, err := tags_analyzer.GetRegexExprForTag(img.Tag)
+	tagExpr, err := tagsanalyzer.GetRegexExprForTag(img.Tag)
 	if err != nil {
 		log.Errorf("could not get a tag expression for image %s with tag %s", img.GetNameWithRegistry(), img.Tag)
 		return
 	}
 
-	latestTag, err := tags_analyzer.GetLatestTagWithRegexExpr(allTagsFromRegistry, tagExpr)
+	latestTag, err := tagsanalyzer.GetLatestTagWithRegexExpr(allTagsFromRegistry, tagExpr)
 	if err != nil {
 		log.Errorf("registry/worker: %s", err)
 	}

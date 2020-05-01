@@ -27,13 +27,21 @@ package differentiate
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
+
+	"go.uber.org/ratelimit"
 )
 
-func NewOCIRegistryService(ctx context.Context, rp Repository) Service {
+type OCIWorker interface {
+	Stop()
+}
+
+func NewOCIRegistryService(ctx context.Context, rp Repository, startWorker func(ctx context.Context, client OciRegistryAPIClient, registry, imageName string, rateLimiter ratelimit.Limiter, info chan<- NotificationEvent, repository ListImagesRepository) OCIWorker) Service {
 	ors := &OCIRegistryService{
 		rp:                 rp,
 		workerNotification: make(chan NotificationEvent, 100),
+		startWorkerFun:     startWorker,
 	}
 	go ors.multiplexToNotifiers(ctx)
 
@@ -42,35 +50,51 @@ func NewOCIRegistryService(ctx context.Context, rp Repository) Service {
 
 type OCIRegistryService struct {
 	rp                 Repository
-	workers            map[string]*Worker
+	workers            map[string]OCIWorker
 	notifiers          []chan<- NotificationEvent
 	workerNotification chan NotificationEvent
+	workerMtx          sync.Mutex
+	startWorkerFun     func(ctx context.Context, client OciRegistryAPIClient, registry, imageName string, rateLimiter ratelimit.Limiter, info chan<- NotificationEvent, repository ListImagesRepository) OCIWorker
 }
 
-func (O *OCIRegistryService) AddImage(ctx context.Context, image *Image) error {
+func (O *OCIRegistryService) AddImage(ctx context.Context, image Image) error {
 
 	if err := O.rp.AddImage(ctx, image); err != nil {
 		return err
 	}
 
-	var w *Worker
-	w, found := O.workers[image.Registry]
+	_, found := O.workers[image.GetNameWithRegistry()]
 	if !found {
-		w = StartNewImageWorker(ctx, NewOCIAPIClient(http.Client{Timeout: time.Second * 10}, image), image.Registry, image.Name, createRateLimitForRegistry(image.Registry), O.workerNotification, O.rp)
-		O.workers[image.Registry] = w
+		O.workerMtx.Lock()
+		O.workers[image.GetNameWithRegistry()] = O.startWorkerFun(ctx, NewOCIAPIClient(http.Client{Timeout: time.Second * 10}, image), image.Registry, image.Name, createRateLimitForRegistry(image.Registry), O.workerNotification, O.rp)
+		O.workerMtx.Unlock()
 	}
 	return nil
 }
 
-func (O *OCIRegistryService) DeleteImage(ctx context.Context, image *Image) error {
+func (O *OCIRegistryService) DeleteImage(ctx context.Context, image Image) error {
+	O.workerMtx.Lock()
+	images, err := O.rp.ListImages(ctx, ListOptions{ImageName: image.Name, Registry: image.Registry})
+	if err != nil {
+		O.workerMtx.Unlock()
+		return err
+	}
+	if len(images) <= 1 {
+		if worker, ok := O.workers[image.GetNameWithRegistry()]; ok {
+			worker.Stop()
+			delete(O.workers, image.GetNameWithRegistry())
+		}
+	}
+	O.workerMtx.Unlock()
+
 	return O.rp.DeleteImage(ctx, image)
 }
 
-func (O *OCIRegistryService) UpdateImage(ctx context.Context, image *Image) error {
+func (O *OCIRegistryService) UpdateImage(ctx context.Context, image Image) error {
 	return O.rp.UpdateImage(ctx, image)
 }
 
-func (O *OCIRegistryService) ListImage(ctx context.Context, opts *ListOptions) ([]Image, error) {
+func (O *OCIRegistryService) ListImages(ctx context.Context, opts ListOptions) ([]Image, error) {
 	return O.rp.ListImages(ctx, opts)
 }
 

@@ -25,15 +25,24 @@
 package differentiate
 
 import (
+	"sync"
+
 	"go.uber.org/ratelimit"
 )
 
 var (
-	registryRateLimits map[string]ratelimit.Limiter
+	registryRateLimits    map[string]ratelimit.Limiter
+	registryRateLimitsMtx sync.Mutex
 )
 
 func createRateLimitForRegistry(registry string) ratelimit.Limiter {
+	registryRateLimitsMtx.Lock()
+	if rl, found := registryRateLimits[registry]; found {
+		registryRateLimitsMtx.Unlock()
+		return rl
+	}
 	rl := ratelimit.New(5)
 	registryRateLimits[registry] = rl
+	registryRateLimitsMtx.Unlock()
 	return rl
 }
