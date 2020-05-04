@@ -29,16 +29,18 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/fwiedmann/differ/pkg/registry"
 )
 
-func NewOCIRegistryService(ctx context.Context, rp Repository, initOCIAPIClientFun func(c http.Client, img OciImage) *OCIRegistryAPIClient) Service {
+func NewOCIRegistryService(ctx context.Context, rp Repository, initOCIAPIClientFun func(c http.Client, img registry.OciImage) OciRegistryAPIClient) Service {
 	ors := &OCIRegistryService{
 		rp:                  rp,
 		workerNotification:  make(chan NotificationEvent, 100),
 		initOCIAPIClientFun: initOCIAPIClientFun,
+		workerCtx:           ctx,
 	}
 	go ors.multiplexToNotifiers(ctx)
-
 	return ors
 }
 
@@ -48,7 +50,8 @@ type OCIRegistryService struct {
 	notifiers           []chan<- NotificationEvent
 	workerNotification  chan NotificationEvent
 	workerMtx           sync.Mutex
-	initOCIAPIClientFun func(c http.Client, img OciImage) *OCIRegistryAPIClient
+	workerCtx           context.Context
+	initOCIAPIClientFun func(c http.Client, img registry.OciImage) OciRegistryAPIClient
 }
 
 func (O *OCIRegistryService) AddImage(ctx context.Context, image Image) error {
@@ -63,7 +66,7 @@ func (O *OCIRegistryService) AddImage(ctx context.Context, image Image) error {
 		httpClient := http.Client{
 			Timeout: time.Second * 10,
 		}
-		O.workers[image.GetNameWithRegistry()] = StartNewImageWorker(ctx, O.initOCIAPIClientFun(httpClient, image), image.Registry, image.Name, createRateLimitForRegistry(image.Registry), O.workerNotification, O.rp)
+		O.workers[image.GetNameWithRegistry()] = StartNewImageWorker(O.workerCtx, O.initOCIAPIClientFun(httpClient, image), image.Registry, image.Name, createRateLimitForRegistry(image.Registry), O.workerNotification, O.rp)
 		O.workerMtx.Unlock()
 	}
 	return nil
@@ -105,7 +108,9 @@ func (O *OCIRegistryService) multiplexToNotifiers(ctx context.Context) {
 		select {
 		case event := <-O.workerNotification:
 			for _, ch := range O.notifiers {
-				ch <- event
+				go func(ch chan<- NotificationEvent) {
+					ch <- event
+				}(ch)
 			}
 		case <-notifyContext.Done():
 			cancel()

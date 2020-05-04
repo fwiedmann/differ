@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package differentiate
+package registry
 
 import (
 	"context"
@@ -52,7 +52,7 @@ type tagList struct {
 	Tags []string `json:"tags"`
 }
 
-// OciImage is the interface that wraps a image representation and its required information in a formatted format
+// OciImage is the interface that wraps a Image representation and its required information in a formatted format
 // that the client requires for different kind of API calls
 type OciImage interface {
 	GetNameWithoutRegistry() string
@@ -65,25 +65,17 @@ type OciPullSecret interface {
 	GetPassword() string
 }
 
-// OCIRegistryAPIClient requests a  registry of a given image. If  pull secret is nil it will request the registry without basic-auth.
+// OciAPIClient requests a  registry of a given Image. If  pull secret is nil it will request the registry without basic-auth.
 // The stores a bearer token to avoid unnecessary traffic and registry restrictions of max login. If an API call code is 401 or 403
 // the client return a PermissionsError, else a ClientAPIError.
-type OCIRegistryAPIClient struct {
-	image       OciImage
+type OciAPIClient struct {
+	Image       OciImage
 	bearerToken string
 	http.Client
 }
 
-// NewOCIAPIClient image registry API client which will store the bearer token for authorization
-func NewOCIAPIClient(c http.Client, img OciImage) *OCIRegistryAPIClient {
-	return &OCIRegistryAPIClient{
-		image:  img,
-		Client: c,
-	}
-}
-
 // GetTagsForImage for configured client. If secret is nil the request will omit the BasicAuth HTTP header
-func (c *OCIRegistryAPIClient) GetTagsForImage(ctx context.Context, secret OciPullSecret) ([]string, error) {
+func (c *OciAPIClient) GetTagsForImage(ctx context.Context, secret OciPullSecret) ([]string, error) {
 	if c.bearerToken == "" {
 		err := c.getBearerToken(ctx, secret)
 		if err != nil {
@@ -103,7 +95,7 @@ func (c *OCIRegistryAPIClient) GetTagsForImage(ctx context.Context, secret OciPu
 	return tags, err
 }
 
-func (c *OCIRegistryAPIClient) getBearerToken(ctx context.Context, secret OciPullSecret) error {
+func (c *OciAPIClient) getBearerToken(ctx context.Context, secret OciPullSecret) error {
 	realmURL, err := c.getRealmURLFromImageRegistry(ctx)
 	if err != nil {
 		return err
@@ -118,8 +110,8 @@ func (c *OCIRegistryAPIClient) getBearerToken(ctx context.Context, secret OciPul
 	return nil
 }
 
-func (c *OCIRegistryAPIClient) getRealmURLFromImageRegistry(ctx context.Context) (url string, err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+c.image.GetRegistryURL()+"/"+dockerRegistryVersion, nil)
+func (c *OciAPIClient) getRealmURLFromImageRegistry(ctx context.Context) (url string, err error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+c.Image.GetRegistryURL()+"/"+dockerRegistryVersion, nil)
 	if err != nil {
 		return "", newAPIErrorF(err, "registries/api error: %s", err)
 	}
@@ -135,12 +127,12 @@ func (c *OCIRegistryAPIClient) getRealmURLFromImageRegistry(ctx context.Context)
 	}()
 
 	if resp.StatusCode != http.StatusUnauthorized {
-		return "", newAPIErrorF(err, "registries/api error: invalid response code %d from %s registries when trying to get realm URL for bearer token for image %s. Registry does not follow the %s header standard. %d is required", resp.StatusCode, c.image.GetRegistryURL(), c.image.GetNameWithoutRegistry(), httpAuthenticateHeader, http.StatusUnauthorized)
+		return "", newAPIErrorF(err, "registries/api error: invalid response code %d from %s registries when trying to get realm URL for bearer token for Image %s. Registry does not follow the %s header standard. %d is required", resp.StatusCode, c.Image.GetRegistryURL(), c.Image.GetNameWithoutRegistry(), httpAuthenticateHeader, http.StatusUnauthorized)
 	}
 
 	respHeader := resp.Header.Get(httpAuthenticateHeader)
 	if respHeader == "" {
-		return "", newAPIErrorF(nil, "Header \"%s\" is empty for requested url \"%s\"", httpAuthenticateHeader, c.image.GetRegistryURL())
+		return "", newAPIErrorF(nil, "Header \"%s\" is empty for requested url \"%s\"", httpAuthenticateHeader, c.Image.GetRegistryURL())
 	}
 
 	if !isValidHeader(bearerRealmRegex, respHeader) {
@@ -161,11 +153,11 @@ func (c *OCIRegistryAPIClient) getRealmURLFromImageRegistry(ctx context.Context)
 	return c.generateRealmURLWithService(realm, service), nil
 }
 
-func (c *OCIRegistryAPIClient) generateRealmURLWithService(realm, service string) string {
-	return fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", realm, service, c.image.GetNameWithoutRegistry())
+func (c *OciAPIClient) generateRealmURLWithService(realm, service string) string {
+	return fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", realm, service, c.Image.GetNameWithoutRegistry())
 }
 
-func (c *OCIRegistryAPIClient) getBearerTokenFromRealm(ctx context.Context, realmURL string, secret OciPullSecret) (token string, err error) {
+func (c *OciAPIClient) getBearerTokenFromRealm(ctx context.Context, realmURL string, secret OciPullSecret) (token string, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, realmURL, nil)
 	if err != nil {
 		return "", newAPIErrorF(err, "registries/api error: %s", err)
@@ -201,7 +193,7 @@ func (c *OCIRegistryAPIClient) getBearerTokenFromRealm(ctx context.Context, real
 	return t.Token, nil
 }
 
-func (c *OCIRegistryAPIClient) getTags(ctx context.Context) ([]string, error) {
+func (c *OciAPIClient) getTags(ctx context.Context) ([]string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.generateGetTagsURL(), nil)
 	if err != nil {
 		return nil, newAPIErrorF(err, "registries/api error: %s", err)
@@ -237,8 +229,8 @@ func (c *OCIRegistryAPIClient) getTags(ctx context.Context) ([]string, error) {
 	return tags.Tags, nil
 }
 
-func (c *OCIRegistryAPIClient) generateGetTagsURL() string {
-	return fmt.Sprintf("https://%s/%s/%s/tags/list", c.image.GetRegistryURL(), dockerRegistryVersion, c.image.GetNameWithoutRegistry())
+func (c *OciAPIClient) generateGetTagsURL() string {
+	return fmt.Sprintf("https://%s/%s/%s/tags/list", c.Image.GetRegistryURL(), dockerRegistryVersion, c.Image.GetNameWithoutRegistry())
 }
 
 const (

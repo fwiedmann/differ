@@ -26,31 +26,30 @@ package cmd
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/fwiedmann/differ/pkg/registries/worker"
+	"github.com/fwiedmann/differ/pkg/registry"
 
-	differController "github.com/fwiedmann/differ/pkg/controller"
+	"github.com/fwiedmann/differ/pkg/differentiate"
 
-	"github.com/fwiedmann/differ/pkg/registries"
+	"github.com/fwiedmann/differ/pkg/storage/memory"
 
-	"github.com/fwiedmann/differ/pkg/config"
-	kubernetes_client "github.com/fwiedmann/differ/pkg/kubernetes-client"
-	"github.com/fwiedmann/differ/pkg/observer"
+	"github.com/fwiedmann/differ/pkg/observe"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
-var observerKindsToInit []observer.Kind
+var observerKindsToInit []observe.Kind
 
 type controller interface {
 	Start(ctx context.Context)
 }
 
 func init() {
-	observerKindsToInit = append(observerKindsToInit, observer.AppV1Deployment, observer.AppV1DaemonSet, observer.AppV1StatefulSet)
+	observerKindsToInit = append(observerKindsToInit, observe.AppV1Deployment, observe.AppV1DaemonSet, observe.AppV1StatefulSet)
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "./config.yaml", "Path to differ config file")
 	rootCmd.Flags().String("loglevel", "info", "Set loglevel. Default is info")
 	rootCmd.Flags().Bool("devmode", false, "Run differ from outside a cluster")
@@ -63,11 +62,11 @@ var rootCmd = cobra.Command{
 	Short:        "",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		o, err := config.NewConfig(configFile, cmd.Version)
+		/*o, err := config.NewConfig(configFile, cmd.Version)
 		if err != nil {
 			return err
-		}
-		conf := o.GetConfig()
+		}*/
+		/*conf := o.GetConfig()
 		isDevMode, err := cmd.Flags().GetBool("devmode")
 		if err != nil {
 			return err
@@ -76,24 +75,29 @@ var rootCmd = cobra.Command{
 		kubernetesAPIClient, err := kubernetes_client.InitKubernetesAPIClient(isDevMode)
 		if err != nil {
 			return err
-		}
+		}*/
 
-		newTagChan := make(chan worker.Event, 100)
-		registryStore := registries.NewRegistriesStore(newTagChan)
 		ctx, cancel := context.WithCancel(context.Background())
-		eventGenerator := observer.NewGenerator(kubernetesAPIClient, conf.Namespace)
-		observerConfig := observer.NewObserverConfig(conf.Namespace, kubernetesAPIClient, eventGenerator, registryStore)
 
-		err = initAllObservers(ctx, observerConfig)
+		storage := memory.NewMemoryStorage()
+
+		differentiate.NewOCIRegistryService(ctx, storage, func(c http.Client, img registry.OciImage) differentiate.OciRegistryAPIClient {
+			return &registry.OciAPIClient{
+				Image:  img,
+				Client: c,
+			}
+		})
+
+		/*err = initAllObservers(ctx, observerConfig)
 		if err != nil {
 			return err
-		}
+		}*/
 
 		controllerErrorChan := make(chan error)
 
-		imageTagListener := differController.NewRegistryEventListener(newTagChan)
+		/*imageTagListener := differController.NewRegistryEventListener(newTagChan)*/
 
-		startControllers(ctx, &imageTagListener)
+		/*startControllers(ctx, &imageTagListener)*/
 
 		osNotifyChan := initOSNotifyChan()
 		select {
@@ -108,9 +112,9 @@ var rootCmd = cobra.Command{
 	},
 }
 
-func initAllObservers(ctx context.Context, observerConfig observer.Config) error {
+func initAllObservers(ctx context.Context, observerConfig observe.Config) error {
 	for _, observerKindToInit := range observerKindsToInit {
-		o, err := observer.NewObserver(observerKindToInit, observerConfig)
+		o, err := observe.NewObserver(observerKindToInit, observerConfig)
 		if err != nil {
 			return err
 		}

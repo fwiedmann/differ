@@ -29,13 +29,15 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/fwiedmann/differ/pkg/registry"
+
 	tagsanalyzer "github.com/fwiedmann/differ/pkg/tags-analyzer"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/ratelimit"
 )
 
 type OciRegistryAPIClient interface {
-	GetTagsForImage(ctx context.Context, secret OciPullSecret) ([]string, error)
+	GetTagsForImage(ctx context.Context, secret registry.OciPullSecret) ([]string, error)
 }
 
 type ListImagesRepository interface {
@@ -52,6 +54,7 @@ func StartNewImageWorker(ctx context.Context, client OciRegistryAPIClient, regis
 		mutex:       sync.RWMutex{},
 		informChan:  info,
 		rateLimiter: rateLimiter,
+		stop:        make(chan struct{}),
 	}
 	go newWorker.startRunning(ctx)
 	return &newWorker
@@ -69,40 +72,36 @@ type Worker struct {
 }
 
 func (w *Worker) Stop() {
-	go func() {
-		w.stop <- struct{}{}
-	}()
+	w.stop <- struct{}{}
 	close(w.stop)
 }
 
 func (w *Worker) startRunning(ctx context.Context) {
 	imageWorkerCtx, cancel := context.WithCancel(ctx)
 
-imageWorkerRoutine:
 	for {
-
-		images, err := w.rp.ListImages(imageWorkerCtx, ListOptions{
-			ImageName: w.imageName,
-			Registry:  w.registry,
-		})
-
-		if err != nil {
-			log.Error(err)
-			continue
-		}
-
-		if len(images) == 0 {
-			continue
-		}
-
 		select {
 		case <-imageWorkerCtx.Done():
 			cancel()
-			break imageWorkerRoutine
+			return
 		case <-w.stop:
 			cancel()
-			break imageWorkerRoutine
+			return
 		default:
+			images, err := w.rp.ListImages(imageWorkerCtx, ListOptions{
+				ImageName: w.imageName,
+				Registry:  w.registry,
+			})
+
+			if err != nil {
+				log.Error(err)
+				continue
+			}
+
+			if len(images) == 0 {
+				continue
+			}
+
 			w.mutex.RLock()
 
 			tags, err := w.requestTagsFromAPIWithAllStoredObjects(ctx, images)
@@ -137,7 +136,7 @@ func (w *Worker) requestTagsFromAPIWithAllStoredObjects(ctx context.Context, img
 		}
 		latestError = err
 	}
-	return nil, fmt.Errorf("could not fetch any tags for image %s, error: %s", imageName, latestError)
+	return nil, fmt.Errorf("could not fetch any tags for Image %s, error: %s", imageName, latestError)
 }
 
 func (w *Worker) requestTagsFromAPIWithSecrets(ctx context.Context, secrets []*PullSecret) ([]string, error) {
@@ -168,7 +167,7 @@ func (w *Worker) sendEventForEachStoredObjectIfNewerTagExits(allTagsFromRegistry
 func (w *Worker) sendEventForStoredObjectIfNewerTagExits(img Image, allTagsFromRegistry []string) {
 	tagExpr, err := tagsanalyzer.GetRegexExprForTag(img.Tag)
 	if err != nil {
-		log.Errorf("could not get a tag expression for image %s with tag %s", img.GetNameWithRegistry(), img.Tag)
+		log.Errorf("could not get a tag expression for Image %s with tag %s", img.GetNameWithRegistry(), img.Tag)
 		return
 	}
 

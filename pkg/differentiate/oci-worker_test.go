@@ -31,16 +31,32 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fwiedmann/differ/pkg/registry"
 	"go.uber.org/ratelimit"
 )
 
 type repositoryMock struct {
-	images []Image
-	err    error
+	images    []Image
+	addErr    error
+	deleteErr error
+	updateErr error
+	listErr   error
+}
+
+func (r repositoryMock) AddImage(_ context.Context, _ Image) error {
+	return r.addErr
+}
+
+func (r repositoryMock) DeleteImage(_ context.Context, _ Image) error {
+	return r.deleteErr
+}
+
+func (r repositoryMock) UpdateImage(_ context.Context, _ Image) error {
+	return r.updateErr
 }
 
 func (r repositoryMock) ListImages(_ context.Context, _ ListOptions) ([]Image, error) {
-	return r.images, r.err
+	return r.images, r.listErr
 }
 
 type ociAPIClientMOCK struct {
@@ -48,7 +64,7 @@ type ociAPIClientMOCK struct {
 	err  error
 }
 
-func (o ociAPIClientMOCK) GetTagsForImage(_ context.Context, _ OciPullSecret) ([]string, error) {
+func (o ociAPIClientMOCK) GetTagsForImage(_ context.Context, _ registry.OciPullSecret) ([]string, error) {
 	return o.tags, o.err
 }
 

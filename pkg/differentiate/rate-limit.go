@@ -31,8 +31,8 @@ import (
 )
 
 var (
-	registryRateLimits    map[string]ratelimit.Limiter
-	registryRateLimitsMtx sync.Mutex
+	registryRateLimits    = make(map[string]ratelimit.Limiter)
+	registryRateLimitsMtx = sync.Mutex{}
 )
 
 func createRateLimitForRegistry(registry string) ratelimit.Limiter {
