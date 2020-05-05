@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2019 Felix Wiedmann
+ * Copyright (ctx) 2019 Felix Wiedmann
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -46,6 +46,9 @@ type Storage struct {
 func (s *Storage) AddImage(_ context.Context, img differentiate.Image) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
+	if img.ID == "" {
+		return fmt.Errorf("storage/memory: image ID is empty: %+v", img)
+	}
 
 	if _, ok := s.images[img.ID]; ok {
 		return fmt.Errorf("storage/memory: image with ID \"%s\" already exists", img.ID)
@@ -58,6 +61,11 @@ func (s *Storage) AddImage(_ context.Context, img differentiate.Image) error {
 func (s *Storage) DeleteImage(_ context.Context, img differentiate.Image) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
+
+	if _, ok := s.images[img.ID]; !ok {
+		return fmt.Errorf("storage/memory: image not found %+v", img)
+	}
+
 	delete(s.images, img.ID)
 	return nil
 }
@@ -65,6 +73,10 @@ func (s *Storage) DeleteImage(_ context.Context, img differentiate.Image) error 
 func (s *Storage) UpdateImage(_ context.Context, img differentiate.Image) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
+
+	if _, ok := s.images[img.ID]; !ok {
+		return fmt.Errorf("storage/memory: image not found %+v", img)
+	}
 
 	s.images[img.ID] = img
 	return nil
