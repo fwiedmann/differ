@@ -26,6 +26,7 @@ package differentiate
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"sync"
 	"testing"
@@ -69,8 +70,8 @@ func (o ociAPIClientMOCK) GetTagsForImage(_ context.Context, _ registry.OciPullS
 }
 
 var (
-	imageRemoteTags = []string{"1.0.0,2.0.0,3.0.0"}
-	image           = Image{
+	imageRemoteTags  = []string{"1.0.0", "2.0.0", "3.0.0"}
+	imageWithoutAuth = Image{
 		ID:       "1111",
 		Registry: "differ.com",
 		Name:     "differ",
@@ -78,7 +79,19 @@ var (
 		Auth:     nil,
 	}
 
-	rpMock = repositoryMock{images: []Image{image}}
+	imageWithAuth = Image{
+		ID:       "1111",
+		Registry: "differ.com",
+		Name:     "differ",
+		Tag:      "1.0.0",
+		Auth: []*PullSecret{{
+			Username: "admin",
+			Password: "admin"},
+		},
+	}
+
+	rpWithoutAuthMockMock = repositoryMock{images: []Image{imageWithoutAuth}}
+	rpWithAuthMockMock    = repositoryMock{images: []Image{imageWithAuth}}
 
 	ociAPIMock = ociAPIClientMOCK{
 		tags: imageRemoteTags,
@@ -96,7 +109,7 @@ func TestStartNewImageWorker(t *testing.T) {
 		registry    string
 		imageName   string
 		rateLimiter ratelimit.Limiter
-		info        chan<- NotificationEvent
+		info        chan NotificationEvent
 		repository  ListImagesRepository
 	}
 	tests := []struct {
@@ -105,32 +118,96 @@ func TestStartNewImageWorker(t *testing.T) {
 		want *Worker
 	}{
 		{
-			name: "ValidStartNewImageWorkerFun",
+			name: "ImageWithoutAuth",
 			args: args{
-				ctx:         context.TODO(),
 				client:      ociAPIMock,
-				registry:    image.Registry,
-				imageName:   image.Name,
+				registry:    imageWithoutAuth.Registry,
+				imageName:   imageWithoutAuth.Name,
 				rateLimiter: rl,
 				info:        infoChan,
-				repository:  rpMock,
+				repository:  rpWithoutAuthMockMock,
 			},
 			want: &Worker{
-				imageName:   image.Name,
-				registry:    image.Registry,
-				rp:          rpMock,
+				imageName:   imageWithoutAuth.Name,
+				registry:    imageWithoutAuth.Registry,
+				rp:          rpWithoutAuthMockMock,
 				mutex:       sync.RWMutex{},
 				informChan:  infoChan,
 				rateLimiter: rl,
 				client:      ociAPIMock,
 			},
 		},
+		{
+			name: "ImageWithoutAuthAPIError",
+			args: args{
+				client:      ociAPIClientMOCK{err: fmt.Errorf("error")},
+				registry:    imageWithoutAuth.Registry,
+				imageName:   imageWithoutAuth.Name,
+				rateLimiter: rl,
+				info:        infoChan,
+				repository:  rpWithoutAuthMockMock,
+			},
+			want: &Worker{
+				imageName:   imageWithoutAuth.Name,
+				registry:    imageWithoutAuth.Registry,
+				rp:          rpWithoutAuthMockMock,
+				mutex:       sync.RWMutex{},
+				informChan:  infoChan,
+				rateLimiter: rl,
+				client:      ociAPIClientMOCK{err: fmt.Errorf("error")},
+			},
+		},
+		{
+			name: "ImageWithAuth",
+			args: args{
+				client:      ociAPIMock,
+				registry:    imageWithAuth.Registry,
+				imageName:   imageWithAuth.Name,
+				rateLimiter: rl,
+				info:        infoChan,
+				repository:  rpWithAuthMockMock,
+			},
+			want: &Worker{
+				imageName:   imageWithAuth.Name,
+				registry:    imageWithAuth.Registry,
+				rp:          rpWithAuthMockMock,
+				mutex:       sync.RWMutex{},
+				informChan:  infoChan,
+				rateLimiter: rl,
+				client:      ociAPIMock,
+			},
+		},
+		{
+			name: "ImageWithAuthAPIError",
+			args: args{
+				client:      ociAPIClientMOCK{err: fmt.Errorf("error")},
+				registry:    imageWithAuth.Registry,
+				imageName:   imageWithAuth.Name,
+				rateLimiter: rl,
+				info:        infoChan,
+				repository:  rpWithAuthMockMock,
+			},
+			want: &Worker{
+				imageName:   imageWithAuth.Name,
+				registry:    imageWithAuth.Registry,
+				rp:          rpWithAuthMockMock,
+				mutex:       sync.RWMutex{},
+				informChan:  infoChan,
+				rateLimiter: rl,
+				client:      ociAPIClientMOCK{err: fmt.Errorf("error")},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := StartNewImageWorker(tt.args.ctx, tt.args.client, tt.args.registry, tt.args.imageName, tt.args.rateLimiter, tt.args.info, tt.args.repository); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("StartNewImageWorker() = %+v, want %+v", got, tt.want)
+			ctx, cancel := context.WithCancel(context.Background())
+			worker := StartNewImageWorker(ctx, tt.args.client, tt.args.registry, tt.args.imageName, tt.args.rateLimiter, tt.args.info, tt.args.repository)
+			tt.want.stop = worker.stop
+			if !reflect.DeepEqual(worker, tt.want) {
+				t.Errorf("StartNewImageWorker() = %+v, want %+v", worker, tt.want)
 			}
+			<-tt.args.info
+			cancel()
 		})
 	}
 }
@@ -153,9 +230,9 @@ func TestWorker_Stop(t *testing.T) {
 		{
 			name: "ValidWorkerStop",
 			fields: fields{
-				imageName:   image.Name,
-				registry:    image.Registry,
-				rp:          rpMock,
+				imageName:   imageWithoutAuth.Name,
+				registry:    imageWithoutAuth.Registry,
+				rp:          rpWithoutAuthMockMock,
 				mutex:       sync.RWMutex{},
 				informChan:  infoChan,
 				rateLimiter: rl,
@@ -176,7 +253,7 @@ func TestWorker_Stop(t *testing.T) {
 				client:      tt.fields.client,
 				stop:        tt.fields.stop,
 			}
-			w.Stop()
+			go w.Stop()
 
 			select {
 			case <-time.After(time.Second * 5):
