@@ -121,7 +121,7 @@ func (c *OciAPIClient) getRealmURLFromImageRegistry(ctx context.Context) (url st
 		return "", newAPIErrorF(err, "registries/api error: %s", err)
 	}
 	defer func() {
-		if closeErr := resp.Body.Close(); err != nil {
+		if closeErr := resp.Body.Close(); closeErr != nil {
 			err = closeErr
 		}
 	}()
@@ -173,7 +173,7 @@ func (c *OciAPIClient) getBearerTokenFromRealm(ctx context.Context, realmURL str
 	}
 
 	defer func() {
-		if closeErr := resp.Body.Close(); err != nil {
+		if closeErr := resp.Body.Close(); closeErr != nil {
 			err = closeErr
 		}
 	}()
@@ -206,7 +206,7 @@ func (c *OciAPIClient) getTags(ctx context.Context) ([]string, error) {
 	}
 
 	defer func() {
-		if closeErr := resp.Body.Close(); err != nil {
+		if closeErr := resp.Body.Close(); closeErr != nil {
 			err = closeErr
 		}
 	}()
