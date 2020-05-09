@@ -25,8 +25,11 @@
 package registry
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -36,6 +39,7 @@ import (
 const (
 	testRealm        = "https://felixwiedmann.de"
 	testRealmService = "container_registry"
+	testBearerToken  = "6c2a7e12fe2c44e4a2707d9f1456ab2b"
 )
 
 type readCloser struct{}
@@ -49,6 +53,7 @@ func (readCloser) Close() error {
 }
 
 var (
+	testTagList       = []string{"1.0.0", "2.5.7", "8.9.1"}
 	validRealmRequest = func(request *http.Request) (*http.Response, error) {
 		h := http.Header{}
 		h.Add("WWW-Authenticate", "Bearer realm=\""+testRealm+"\",service=\""+testRealmService+"\"")
@@ -103,6 +108,7 @@ var (
 	}
 
 	invalidTokenRequestStatusUnauthorized = func(request *http.Request) (*http.Response, error) {
+
 		h := http.Header{}
 		h.Add("WWW-Authenticate", "Bearer realm=\"https://gitlab.com/jwt/auth\",service=\"container_registry\"")
 		return &http.Response{
@@ -135,6 +141,125 @@ var (
 			StatusCode: http.StatusNotFound,
 			Header:     h,
 			Body:       readCloser{},
+			Request: &http.Request{
+				URL: &url.URL{Host: testRealmService},
+			},
+		}, nil
+	}
+	invalidTokenRequestEmptyToken = func(request *http.Request) (*http.Response, error) {
+		h := http.Header{}
+
+		tokenResponse, err := json.Marshal(&bearerToken{
+			Token: "",
+		})
+
+		if err != nil {
+			panic(err)
+		}
+
+		buf := &bytes.Buffer{}
+		buf.Write(tokenResponse)
+
+		h.Add("WWW-Authenticate", "Bearer realm=\"https://gitlab.com/jwt/auth\",service=\"container_registry\"")
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     h,
+			Body:       ioutil.NopCloser(buf),
+			Request: &http.Request{
+				URL: &url.URL{Host: testRealmService},
+			},
+		}, nil
+	}
+	validTokenRequest = func(request *http.Request) (*http.Response, error) {
+		h := http.Header{}
+
+		tokenResponse, err := json.Marshal(&bearerToken{
+			Token: testBearerToken,
+		})
+
+		if err != nil {
+			panic(err)
+		}
+
+		buf := &bytes.Buffer{}
+		buf.Write(tokenResponse)
+
+		h.Add("WWW-Authenticate", "Bearer realm=\"https://gitlab.com/jwt/auth\",service=\"container_registry\"")
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     h,
+			Body:       ioutil.NopCloser(buf),
+			Request: &http.Request{
+				URL: &url.URL{Host: testRealmService},
+			},
+		}, nil
+	}
+	invalidTagRequestError = func(request *http.Request) (*http.Response, error) {
+		return &http.Response{}, fmt.Errorf("api error")
+	}
+
+	invalidTagRequestStatusUnauthorized = func(request *http.Request) (*http.Response, error) {
+		if request.Header.Get("Authorization") != fmt.Sprintf("Bearer "+testBearerToken) {
+			return nil, fmt.Errorf("authorization header is not valid")
+		}
+		return &http.Response{
+			StatusCode: http.StatusUnauthorized,
+			Header:     http.Header{},
+			Body:       readCloser{},
+			Request: &http.Request{
+				URL: &url.URL{Host: testRealmService},
+			},
+		}, nil
+	}
+
+	invalidTagRequestStatusForbidden = func(request *http.Request) (*http.Response, error) {
+		if request.Header.Get("Authorization") != fmt.Sprintf("Bearer "+testBearerToken) {
+			return nil, fmt.Errorf("authorization header is not valid")
+		}
+		return &http.Response{
+			StatusCode: http.StatusForbidden,
+			Header:     http.Header{},
+			Body:       readCloser{},
+			Request: &http.Request{
+				URL: &url.URL{Host: testRealmService},
+			},
+		}, nil
+	}
+
+	invalidTagRequestStatusNotFound = func(request *http.Request) (*http.Response, error) {
+		if request.Header.Get("Authorization") != fmt.Sprintf("Bearer "+testBearerToken) {
+			return nil, fmt.Errorf("authorization header is not valid")
+		}
+		return &http.Response{
+			StatusCode: http.StatusNotFound,
+			Header:     http.Header{},
+			Body:       readCloser{},
+			Request: &http.Request{
+				URL: &url.URL{Host: testRealmService},
+			},
+		}, nil
+	}
+
+	validTagRequest = func(request *http.Request) (*http.Response, error) {
+		if request.Header.Get("Authorization") != fmt.Sprintf("Bearer "+testBearerToken) {
+			return nil, fmt.Errorf("authorization header is not valid")
+		}
+
+		tokenResponse, err := json.Marshal(&tagList{
+			Tags: testTagList,
+		})
+
+		if err != nil {
+			panic(err)
+		}
+
+		buf := &bytes.Buffer{}
+		buf.Write(tokenResponse)
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{},
+			Body:       ioutil.NopCloser(buf),
 			Request: &http.Request{
 				URL: &url.URL{Host: testRealmService},
 			},
@@ -195,7 +320,7 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 		want    []string
 		wantErr bool
 	}{
-		/*{
+		{
 			name: "WithoutAuth",
 			fields: fields{
 				Image:       image,
@@ -204,6 +329,8 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 					Transport: roundTripper{
 						map[string]func(request *http.Request) (*http.Response, error){
 							fmt.Sprintf("%s/v2", image.registryURL): validRealmRequest,
+							fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", testRealm, testRealmService, image.withoutRegistry): validTokenRequest,
+							fmt.Sprintf("%s/%s/%s/tags/list", image.registryURL, "v2", image.withoutRegistry):                         validTagRequest,
 						},
 					},
 				},
@@ -212,9 +339,9 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 				ctx:    context.TODO(),
 				secret: nil,
 			},
-			want:    nil,
+			want:    testTagList,
 			wantErr: false,
-		},*/
+		},
 		{
 			name: "invalidRequestRealmError",
 			fields: fields{
@@ -388,6 +515,115 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 						map[string]func(request *http.Request) (*http.Response, error){
 							fmt.Sprintf("%s/v2", image.registryURL): validRealmRequest,
 							fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", testRealm, testRealmService, image.withoutRegistry): invalidRequestError,
+						},
+					},
+				},
+			},
+			args: args{
+				ctx:    context.TODO(),
+				secret: nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalidTokenRequestEmptyToken",
+			fields: fields{
+				Image:       image,
+				bearerToken: "",
+				Client: http.Client{
+					Transport: roundTripper{
+						map[string]func(request *http.Request) (*http.Response, error){
+							fmt.Sprintf("%s/v2", image.registryURL): validRealmRequest,
+							fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", testRealm, testRealmService, image.withoutRegistry): invalidTokenRequestEmptyToken,
+						},
+					},
+				},
+			},
+			args: args{
+				ctx:    context.TODO(),
+				secret: nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalidTagRequestError",
+			fields: fields{
+				Image:       image,
+				bearerToken: "",
+				Client: http.Client{
+					Transport: roundTripper{
+						map[string]func(request *http.Request) (*http.Response, error){
+							fmt.Sprintf("%s/v2", image.registryURL): validRealmRequest,
+							fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", testRealm, testRealmService, image.withoutRegistry): validTokenRequest,
+							fmt.Sprintf("%s/%s/%s/tags/list", image.registryURL, "v2", image.withoutRegistry):                         invalidTagRequestError,
+						},
+					},
+				},
+			},
+			args: args{
+				ctx:    context.TODO(),
+				secret: nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalidTagRequestStatusUnauthorized",
+			fields: fields{
+				Image:       image,
+				bearerToken: "",
+				Client: http.Client{
+					Transport: roundTripper{
+						map[string]func(request *http.Request) (*http.Response, error){
+							fmt.Sprintf("%s/v2", image.registryURL): validRealmRequest,
+							fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", testRealm, testRealmService, image.withoutRegistry): validTokenRequest,
+							fmt.Sprintf("%s/%s/%s/tags/list", image.registryURL, "v2", image.withoutRegistry):                         invalidTagRequestStatusUnauthorized,
+						},
+					},
+				},
+			},
+			args: args{
+				ctx:    context.TODO(),
+				secret: nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalidTagRequestStatusForbidden",
+			fields: fields{
+				Image:       image,
+				bearerToken: "",
+				Client: http.Client{
+					Transport: roundTripper{
+						map[string]func(request *http.Request) (*http.Response, error){
+							fmt.Sprintf("%s/v2", image.registryURL): validRealmRequest,
+							fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", testRealm, testRealmService, image.withoutRegistry): validTokenRequest,
+							fmt.Sprintf("%s/%s/%s/tags/list", image.registryURL, "v2", image.withoutRegistry):                         invalidTagRequestStatusForbidden,
+						},
+					},
+				},
+			},
+			args: args{
+				ctx:    context.TODO(),
+				secret: nil,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalidTagRequestStatusNotFound",
+			fields: fields{
+				Image:       image,
+				bearerToken: "",
+				Client: http.Client{
+					Transport: roundTripper{
+						map[string]func(request *http.Request) (*http.Response, error){
+							fmt.Sprintf("%s/v2", image.registryURL): validRealmRequest,
+							fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", testRealm, testRealmService, image.withoutRegistry): validTokenRequest,
+							fmt.Sprintf("%s/%s/%s/tags/list", image.registryURL, "v2", image.withoutRegistry):                         invalidTagRequestStatusNotFound,
 						},
 					},
 				},

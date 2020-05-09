@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package observer
+package observe
 
 import (
 	"context"

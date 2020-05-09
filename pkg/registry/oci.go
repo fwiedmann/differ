@@ -190,6 +190,10 @@ func (c *OciAPIClient) getBearerTokenFromRealm(ctx context.Context, realmURL str
 	if err := json.Unmarshal(body, &t); err != nil {
 		return "", newAPIErrorF(err, "registries/api error: %s", err)
 	}
+
+	if t.Token == "" {
+		return "", newAPIErrorF(nil, "registry/api error: bearer token is empty in response %+v", t)
+	}
 	return t.Token, nil
 }
 

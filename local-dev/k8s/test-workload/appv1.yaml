@@ -63,7 +63,7 @@ spec:
     spec:
       containers:
         - name: dummy
-          image: tomcat
+          image: tomcat:8.0.53
 
 ---
 apiVersion: v1

@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package observer
+package observe
 
 import (
 	"context"
@@ -65,7 +65,7 @@ type KubernetesObjectHandler interface {
 	GetUID() types.UID
 }
 
-// Config for an observer which is required for the communication
+// Config for an observe which is required for the communication
 type Config struct {
 	namespaceToScrape   string
 	kubernetesAPIClient kubernetes.Interface
@@ -73,7 +73,7 @@ type Config struct {
 	registryStore       RegistriesStore
 }
 
-// NewObserverConfig contains a core configuration for each observer
+// NewObserverConfig contains a core configuration for each observe
 func NewObserverConfig(namespaceToScrape string, kubernetesAPIClient kubernetes.Interface, eventGenerator *Generator, rs RegistriesStore) Config {
 	return Config{
 		namespaceToScrape:   namespaceToScrape,

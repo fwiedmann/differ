@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package observer
+package observe
 
 import (
 	"fmt"
@@ -38,8 +38,8 @@ const (
 
 type Kind string
 
-// NewObserver init an observer for the given type with corresponding kubernetesObjectHandler.
-// If the observer kind could not be found will return error
+// NewObserver init an observe for the given type with corresponding kubernetesObjectHandler.
+// If the observe kind could not be found will return error
 func NewObserver(observerKind Kind, observerConfig Config) (*Observer, error) {
 	switch observerKind {
 	case AppV1Deployment:
@@ -49,7 +49,7 @@ func NewObserver(observerKind Kind, observerConfig Config) (*Observer, error) {
 	case AppV1StatefulSet:
 		return newAppsV1StatefulSetObserver(observerConfig), nil
 	}
-	return nil, fmt.Errorf("observer kind %s not found", observerKind)
+	return nil, fmt.Errorf("observe kind %s not found", observerKind)
 }
 
 func initNewKubernetesFactory(observerConfig Config) informers.SharedInformerFactory {

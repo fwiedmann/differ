@@ -22,10 +22,10 @@
  * SOFTWARE.
  */
 
-package observer
+package observe
 
 import (
-	"github.com/fwiedmann/differ/pkg/observer/kubernetesObjectHandler/appsv1/deployment"
+	"github.com/fwiedmann/differ/pkg/observe/kubernetesObjectHandler/appsv1/deployment"
 )
 
 func newAppsV1DeploymentObserver(config Config) *Observer {

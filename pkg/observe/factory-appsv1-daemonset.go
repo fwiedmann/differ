@@ -22,25 +22,25 @@
  * SOFTWARE.
  */
 
-package observer
+package observe
 
 import (
-	"github.com/fwiedmann/differ/pkg/observer/kubernetesObjectHandler/appsv1/statefulSet"
+	"github.com/fwiedmann/differ/pkg/observe/kubernetesObjectHandler/appsv1/daemonSet"
 )
 
-func newAppsV1StatefulSetObserver(config Config) *Observer {
+func newAppsV1DaemonSetObserver(config Config) *Observer {
 	kubernetesFactory := initNewKubernetesFactory(config)
 	newObserver := &Observer{
-		kubernetesObjectKind:       "StatefulSet",
+		kubernetesObjectKind:       "DaemonSet",
 		kubernetesAPIVersion:       "apps/v1",
-		kubernetesSharedInformer:   kubernetesFactory.Apps().V1().StatefulSets().Informer(),
+		kubernetesSharedInformer:   kubernetesFactory.Apps().V1().DaemonSets().Informer(),
 		observerConfig:             config,
-		newKubernetesObjectHandler: newStatefulSetObjectHandler,
+		newKubernetesObjectHandler: newDaemonSetObjectHandler,
 	}
 	newObserver.initSharedIndexInformerWithHandleFunctions()
 	return newObserver
 }
 
-func newStatefulSetObjectHandler(kubernetesAPIObj interface{}) (KubernetesObjectHandler, error) {
-	return statefulSet.NewHandler(kubernetesAPIObj)
+func newDaemonSetObjectHandler(kubernetesAPIObj interface{}) (KubernetesObjectHandler, error) {
+	return daemonSet.NewHandler(kubernetesAPIObj)
 }
