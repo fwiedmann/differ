@@ -18,7 +18,8 @@
   </p>
 </p>
 
-  ![badge](https://action-badges.now.sh/fwiedmann/differ)
+ ![love](https://img.shields.io/badge/made%20with-%E2%9D%A4%EF%B8%8F-lightgrey)  ![badge](https://action-badges.now.sh/fwiedmann/differ) [![Total alerts](https://img.shields.io/lgtm/alerts/g/fwiedmann/differ.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/fwiedmann/differ/alerts/) [![Language grade: Go](https://img.shields.io/lgtm/grade/go/g/fwiedmann/differ.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/fwiedmann/differ/context:go)
+
 
 # WIP: This project is currently under development. I will release version 1.0.0 when all current project task are done.
 
