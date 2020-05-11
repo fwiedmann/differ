@@ -3,7 +3,7 @@ module github.com/fwiedmann/differ
 go 1.14
 
 require (
-	github.com/antonfisher/nested-logrus-formatter v1.0.2
+	github.com/antonfisher/nested-logrus-formatter v1.1.0
 	github.com/go-playground/validator/v10 v10.2.0
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/prometheus/client_golang v1.2.1
