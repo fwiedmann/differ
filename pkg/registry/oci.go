@@ -30,6 +30,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -163,7 +164,7 @@ func (c *OciAPIClient) getBearerTokenFromRealm(ctx context.Context, realmURL str
 		return "", newAPIErrorF(err, "registries/api error: %s", err)
 	}
 
-	if secret != nil {
+	if reflect.ValueOf(secret).Kind() == reflect.Ptr && !reflect.ValueOf(secret).IsNil() {
 		req.SetBasicAuth(secret.GetUsername(), secret.GetUsername())
 	}
 
