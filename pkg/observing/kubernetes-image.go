@@ -22,33 +22,30 @@
  * SOFTWARE.
  */
 
-package observe
+package observing
 
 import (
 	"fmt"
-
-	"github.com/fwiedmann/differ/pkg/image"
-	"k8s.io/apimachinery/pkg/types"
 )
 
-// ImageWithKubernetesMetadata contains unique meta information from scraped resource types
-type ImageWithKubernetesMetadata struct {
-	MetaInformation      KubernetesAPIObjectMetaInformation
-	ImageWithPullSecrets image.WithAssociatedPullSecrets
+// imageWithKubernetesMetadata contains unique meta information from scraped resource types
+type imageWithKubernetesMetadata struct {
+	MetaInformation kubernetesAPIObjectMetaInformation
+	Image           image
 }
 
 // GetUID generates a unique ID based of the kubernetes metadata
-func (o ImageWithKubernetesMetadata) GetUID() string {
-	return fmt.Sprintf("%s_%s_%s_%s_%s_%s", o.MetaInformation.Namespace, o.MetaInformation.APIVersion, o.MetaInformation.UID, o.MetaInformation.WorkloadName, o.MetaInformation.ResourceType, o.ImageWithPullSecrets.GetContainerName())
+func (o imageWithKubernetesMetadata) GetUID() string {
+	return fmt.Sprintf("%s_%s_%s_%s_%s_%s", o.MetaInformation.Namespace, o.MetaInformation.APIVersion, o.MetaInformation.UID, o.MetaInformation.WorkloadName, o.MetaInformation.ResourceType, o.Image.GetContainerName())
 }
 
 // String implements the stringer interface
-func (o ImageWithKubernetesMetadata) String() string {
-	return fmt.Sprintf("MetaInformation: %s, ImageWithPullSecrets: %s", o.MetaInformation, o.ImageWithPullSecrets)
+func (o imageWithKubernetesMetadata) String() string {
+	return fmt.Sprintf("MetaInformation: %s, image: %s", o.MetaInformation, o.Image)
 }
 
-// KubernetesAPIObjectMetaInformation from the kubernetes API object
-type KubernetesAPIObjectMetaInformation struct {
+// kubernetesAPIObjectMetaInformation from the kubernetes API object
+type kubernetesAPIObjectMetaInformation struct {
 	UID          string
 	APIVersion   string
 	ResourceType string
@@ -57,17 +54,6 @@ type KubernetesAPIObjectMetaInformation struct {
 }
 
 // String implements the stringer interface
-func (k KubernetesAPIObjectMetaInformation) String() string {
+func (k kubernetesAPIObjectMetaInformation) String() string {
 	return fmt.Sprintf("UID: %s, APIVersion: %s, ResourceType: %s, Namespace: %s, WorkloadName: %s", k.UID, k.APIVersion, k.ResourceType, k.Namespace, k.WorkloadName)
-}
-
-// NewKubernetesAPIObjectMetaInformation for given meta information
-func NewKubernetesAPIObjectMetaInformation(uid types.UID, apiVersion, observedAPIResource, namespace, resourceName string) KubernetesAPIObjectMetaInformation {
-	return KubernetesAPIObjectMetaInformation{
-		UID:          string(uid),
-		APIVersion:   apiVersion,
-		ResourceType: observedAPIResource,
-		Namespace:    namespace,
-		WorkloadName: resourceName,
-	}
 }

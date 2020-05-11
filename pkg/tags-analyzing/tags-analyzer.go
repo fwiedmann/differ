@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package tags_analyzer
+package tags_analyzing
 
 import (
 	"fmt"
@@ -61,7 +61,7 @@ func GetLatestTagWithRegexExpr(tags []string, regx *regexp.Regexp) (string, erro
 	}
 	sort.Sort(tagsToSort)
 	if tagsToSort == nil {
-		return "", fmt.Errorf("tags-analyzer: could not find any valid tags with pattern %s from tags %s", regx.String(), tags)
+		return "", fmt.Errorf("tags-analyzing: could not find any valid tags with pattern %s from tags %s", regx.String(), tags)
 	}
 	return tagsToSort[len(tagsToSort)-1].complete, nil
 }
@@ -72,7 +72,7 @@ func getDigitsFromString(str string) ([]int, error) {
 	for _, strNumber := range found {
 		number, err := strconv.Atoi(strNumber)
 		if err != nil {
-			return nil, fmt.Errorf("tags-analyzer: could not get version numbers from tagInfo %s", str)
+			return nil, fmt.Errorf("tags-analyzing: could not get version numbers from tagInfo %s", str)
 		}
 		convertedNumbers = append(convertedNumbers, number)
 	}

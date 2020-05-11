@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package differentiate
+package differentiating
 
 import (
 	"context"

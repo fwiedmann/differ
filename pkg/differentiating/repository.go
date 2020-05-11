@@ -22,25 +22,13 @@
  * SOFTWARE.
  */
 
-package observe
+package differentiating
 
-import (
-	"github.com/fwiedmann/differ/pkg/observe/kubernetesObjectHandler/appsv1/deployment"
-)
+import "context"
 
-func newAppsV1DeploymentObserver(config Config) *Observer {
-	kubernetesFactory := initNewKubernetesFactory(config)
-	newObserver := &Observer{
-		kubernetesObjectKind:       "Deployment",
-		kubernetesAPIVersion:       "apps/v1",
-		kubernetesSharedInformer:   kubernetesFactory.Apps().V1().Deployments().Informer(),
-		observerConfig:             config,
-		newKubernetesObjectHandler: newDeploymentObjectHandler,
-	}
-
-	newObserver.initSharedIndexInformerWithHandleFunctions()
-	return newObserver
-}
-func newDeploymentObjectHandler(obj interface{}) (KubernetesObjectHandler, error) {
-	return deployment.NewHandler(obj)
+type Repository interface {
+	AddImage(ctx context.Context, image Image) error
+	DeleteImage(ctx context.Context, image Image) error
+	UpdateImage(ctx context.Context, image Image) error
+	ListImages(ctx context.Context, opts ListOptions) ([]Image, error)
 }

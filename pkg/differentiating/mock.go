@@ -22,49 +22,44 @@
  * SOFTWARE.
  */
 
-package differentiate
+package differentiating
 
-import "fmt"
+import "context"
 
-type PullSecret struct {
-	Username string
-	Password string
+// MockService implements the Service interface and should only be used for mocking
+type MockService struct {
+	AddErr, DeleteErr, UpdateErr, ListErr error
+	ListResp                              []Image
 }
 
-func (p PullSecret) GetUsername() string {
-	return p.Username
+// AddImage implements the Service interface
+func (ms MockService) AddImage(_ context.Context, _ Image) error {
+	return ms.AddErr
 }
 
-func (p PullSecret) GetPassword() string {
-	return p.Password
+// DeleteImage implements the Service interface
+func (ms MockService) DeleteImage(_ context.Context, _ Image) error {
+	return ms.DeleteErr
 }
 
-type Image struct {
-	ID       string
-	Registry string
-	Name     string
-	Tag      string
-	Auth     []*PullSecret
+// UpdateImage implements the Service interface
+func (ms MockService) UpdateImage(_ context.Context, _ Image) error {
+	return ms.UpdateErr
 }
 
-func (i Image) GetNameWithoutRegistry() string {
-	return i.Name
+// ListImages implements the Service interface
+func (ms MockService) ListImages(_ context.Context, _ ListOptions) ([]Image, error) {
+	return ms.ListResp, ms.ListErr
 }
 
-func (i Image) GetNameWithRegistry() string {
-	return fmt.Sprintf("%s/%s", i.Registry, i.Name)
-}
-
-func (i Image) GetRegistryURL() string {
-	return i.Registry
-}
-
-type ListOptions struct {
-	ImageName string
-	Registry  string
-}
-
-type NotificationEvent struct {
-	Image  Image
-	NewTag string
+// Notify implements the Service interface
+func (ms MockService) Notify(event chan<- NotificationEvent) {
+	go func() {
+		for _, img := range ms.ListResp {
+			event <- NotificationEvent{
+				Image:  img,
+				NewTag: "187",
+			}
+		}
+	}()
 }

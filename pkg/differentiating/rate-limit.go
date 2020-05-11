@@ -22,36 +22,27 @@
  * SOFTWARE.
  */
 
-package observe
+package differentiating
 
 import (
-	"fmt"
+	"sync"
 
-	"k8s.io/client-go/informers"
+	"go.uber.org/ratelimit"
 )
 
-const (
-	AppV1Deployment  = Kind("APP_V1_DEPLOYMENT")
-	AppV1DaemonSet   = Kind("APP_V1_DAEMON_SET")
-	AppV1StatefulSet = Kind("APP_V1_STATEFUL_SET")
+var (
+	registryRateLimits    = make(map[string]ratelimit.Limiter)
+	registryRateLimitsMtx = sync.Mutex{}
 )
 
-type Kind string
-
-// NewObserver init an observe for the given type with corresponding kubernetesObjectHandler.
-// If the observe kind could not be found will return error
-func NewObserver(observerKind Kind, observerConfig Config) (*Observer, error) {
-	switch observerKind {
-	case AppV1Deployment:
-		return newAppsV1DeploymentObserver(observerConfig), nil
-	case AppV1DaemonSet:
-		return newAppsV1DaemonSetObserver(observerConfig), nil
-	case AppV1StatefulSet:
-		return newAppsV1StatefulSetObserver(observerConfig), nil
+func createRateLimitForRegistry(registry string) ratelimit.Limiter {
+	registryRateLimitsMtx.Lock()
+	if rl, found := registryRateLimits[registry]; found {
+		registryRateLimitsMtx.Unlock()
+		return rl
 	}
-	return nil, fmt.Errorf("observe kind %s not found", observerKind)
-}
-
-func initNewKubernetesFactory(observerConfig Config) informers.SharedInformerFactory {
-	return informers.NewSharedInformerFactoryWithOptions(observerConfig.kubernetesAPIClient, 0, informers.WithNamespace(observerConfig.namespaceToScrape))
+	rl := ratelimit.New(5)
+	registryRateLimits[registry] = rl
+	registryRateLimitsMtx.Unlock()
+	return rl
 }

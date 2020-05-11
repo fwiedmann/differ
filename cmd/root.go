@@ -31,25 +31,28 @@ import (
 	"os/signal"
 	"syscall"
 
+	"k8s.io/client-go/informers"
+
+	"github.com/fwiedmann/differ/pkg/observing"
+
+	"github.com/fwiedmann/differ/pkg/config"
+	kubernetes_client "github.com/fwiedmann/differ/pkg/kubernetes-client"
+
 	"github.com/fwiedmann/differ/pkg/registry"
 
-	"github.com/fwiedmann/differ/pkg/differentiate"
+	"github.com/fwiedmann/differ/pkg/differentiating"
 
 	"github.com/fwiedmann/differ/pkg/storage/memory"
 
-	"github.com/fwiedmann/differ/pkg/observe"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
-
-var observerKindsToInit []observe.Kind
 
 type controller interface {
 	Start(ctx context.Context)
 }
 
 func init() {
-	observerKindsToInit = append(observerKindsToInit, observe.AppV1Deployment, observe.AppV1DaemonSet, observe.AppV1StatefulSet)
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "./config.yaml", "Path to differ config file")
 	rootCmd.Flags().String("loglevel", "info", "Set loglevel. Default is info")
 	rootCmd.Flags().Bool("devmode", false, "Run differ from outside a cluster")
@@ -62,11 +65,11 @@ var rootCmd = cobra.Command{
 	Short:        "",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		/*o, err := config.NewConfig(configFile, cmd.Version)
+		o, err := config.NewConfig(configFile, cmd.Version)
 		if err != nil {
 			return err
-		}*/
-		/*conf := o.GetConfig()
+		}
+		conf := o.GetConfig()
 		isDevMode, err := cmd.Flags().GetBool("devmode")
 		if err != nil {
 			return err
@@ -75,58 +78,47 @@ var rootCmd = cobra.Command{
 		kubernetesAPIClient, err := kubernetes_client.InitKubernetesAPIClient(isDevMode)
 		if err != nil {
 			return err
-		}*/
+		}
 
 		ctx, cancel := context.WithCancel(context.Background())
 
 		storage := memory.NewMemoryStorage()
 
-		differentiate.NewOCIRegistryService(ctx, storage, func(c http.Client, img registry.OciImage) differentiate.OciRegistryAPIClient {
+		service := differentiating.NewOCIRegistryService(ctx, storage, func(c http.Client, img registry.OciImage) differentiating.OciRegistryAPIClient {
 			return &registry.OciAPIClient{
 				Image:  img,
 				Client: c,
 			}
 		})
+		event := make(chan differentiating.NotificationEvent)
+		service.Notify(event)
 
-		/*err = initAllObservers(ctx, observerConfig)
-		if err != nil {
-			return err
-		}*/
+		appv1DaemonSetInformer := informers.NewSharedInformerFactoryWithOptions(kubernetesAPIClient, 0, informers.WithNamespace(conf.Namespace)).Apps().V1().DaemonSets().Informer()
+		observing.StartKubernetesObserverService(ctx, kubernetesAPIClient, appv1DaemonSetInformer, conf.Namespace, observing.NewKubernetesAPPV1DaemonSetSerializer, service)
 
+		appv1DeploymentInformer := informers.NewSharedInformerFactoryWithOptions(kubernetesAPIClient, 0, informers.WithNamespace(conf.Namespace)).Apps().V1().Deployments().Informer()
+		observing.StartKubernetesObserverService(ctx, kubernetesAPIClient, appv1DeploymentInformer, conf.Namespace, observing.NewKubernetesAPPV1DeploymentSerializer, service)
+
+		appv1StatefulSetInformer := informers.NewSharedInformerFactoryWithOptions(kubernetesAPIClient, 0, informers.WithNamespace(conf.Namespace)).Apps().V1().StatefulSets().Informer()
+		observing.StartKubernetesObserverService(ctx, kubernetesAPIClient, appv1StatefulSetInformer, conf.Namespace, observing.NewKubernetesAPPV1StatefulSetSerializer, service)
 		controllerErrorChan := make(chan error)
 
-		/*imageTagListener := differController.NewRegistryEventListener(newTagChan)*/
-
-		/*startControllers(ctx, &imageTagListener)*/
-
 		osNotifyChan := initOSNotifyChan()
-		select {
-		case osSignal := <-osNotifyChan:
-			log.Warnf("received os %s signal, start  graceful shutdown of controller...", osSignal.String())
-			cancel()
-			return nil
-		case err := <-controllerErrorChan:
-			cancel()
-			return err
+		for {
+			select {
+			case e := <-event:
+				log.Infof("%+v", e)
+			case osSignal := <-osNotifyChan:
+				log.Warnf("received os %s signal, start  graceful shutdown of controller...", osSignal.String())
+				cancel()
+				return nil
+			case err := <-controllerErrorChan:
+				cancel()
+				return err
+			}
 		}
+
 	},
-}
-
-func initAllObservers(ctx context.Context, observerConfig observe.Config) error {
-	for _, observerKindToInit := range observerKindsToInit {
-		o, err := observe.NewObserver(observerKindToInit, observerConfig)
-		if err != nil {
-			return err
-		}
-		go o.StartObserving(ctx)
-	}
-	return nil
-}
-
-func startControllers(ctx context.Context, controllers ...controller) {
-	for _, c := range controllers {
-		go c.Start(ctx)
-	}
 }
 
 func initOSNotifyChan() <-chan os.Signal {

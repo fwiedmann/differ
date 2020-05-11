@@ -22,27 +22,29 @@
  * SOFTWARE.
  */
 
-package differentiate
+package tags_analyzing
 
-import (
-	"sync"
+type tagInfo struct {
+	digits   []int
+	complete string
+}
 
-	"go.uber.org/ratelimit"
-)
+type sorter []tagInfo
 
-var (
-	registryRateLimits    = make(map[string]ratelimit.Limiter)
-	registryRateLimitsMtx = sync.Mutex{}
-)
+func (s sorter) Len() int {
+	return len(s)
+}
 
-func createRateLimitForRegistry(registry string) ratelimit.Limiter {
-	registryRateLimitsMtx.Lock()
-	if rl, found := registryRateLimits[registry]; found {
-		registryRateLimitsMtx.Unlock()
-		return rl
+func (s sorter) Less(i, j int) bool {
+	for x := range s[i].digits {
+		if s[i].digits[x] == s[j].digits[x] {
+			continue
+		}
+		return s[i].digits[x] < s[j].digits[x]
 	}
-	rl := ratelimit.New(5)
-	registryRateLimits[registry] = rl
-	registryRateLimitsMtx.Unlock()
-	return rl
+	return false
+}
+
+func (s sorter) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
 }

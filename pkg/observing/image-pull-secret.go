@@ -22,13 +22,27 @@
  * SOFTWARE.
  */
 
-package differentiate
+package observing
 
-import "context"
+import "fmt"
 
-type Repository interface {
-	AddImage(ctx context.Context, image Image) error
-	DeleteImage(ctx context.Context, image Image) error
-	UpdateImage(ctx context.Context, image Image) error
-	ListImages(ctx context.Context, opts ListOptions) ([]Image, error)
+func newPullSecret(username, password string) *pullSecret {
+	return &pullSecret{
+		username: username,
+		password: password,
+	}
+}
+
+type pullSecret struct {
+	username string
+	password string
+}
+
+func (ps pullSecret) String() string {
+	var stars string
+
+	for i := 0; i < len(ps.password); i++ {
+		stars += "*"
+	}
+	return fmt.Sprintf("username: %s, password: %s", ps.username, stars)
 }

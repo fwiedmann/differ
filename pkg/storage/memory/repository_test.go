@@ -30,7 +30,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/fwiedmann/differ/pkg/differentiate"
+	"github.com/fwiedmann/differ/pkg/differentiating"
 )
 
 func TestNewMemoryStorage(t *testing.T) {
@@ -42,7 +42,7 @@ func TestNewMemoryStorage(t *testing.T) {
 			name: "Valid",
 			want: &Storage{
 				mtx:    sync.RWMutex{},
-				images: make(map[string]differentiate.Image),
+				images: make(map[string]differentiating.Image),
 			},
 		},
 	}
@@ -58,11 +58,11 @@ func TestNewMemoryStorage(t *testing.T) {
 func TestStorage_AddImage(t *testing.T) {
 	type fields struct {
 		mtx    sync.RWMutex
-		images map[string]differentiate.Image
+		images map[string]differentiating.Image
 	}
 	type args struct {
 		ctx context.Context
-		img differentiate.Image
+		img differentiating.Image
 	}
 	tests := []struct {
 		name    string
@@ -74,11 +74,11 @@ func TestStorage_AddImage(t *testing.T) {
 			name: "Valid",
 			fields: fields{
 				mtx:    sync.RWMutex{},
-				images: make(map[string]differentiate.Image),
+				images: make(map[string]differentiating.Image),
 			},
 			args: args{
 				ctx: context.TODO(),
-				img: differentiate.Image{
+				img: differentiating.Image{
 					ID:       "1",
 					Registry: "docker.com",
 					Name:     "wiedmannfelix/differ",
@@ -92,11 +92,11 @@ func TestStorage_AddImage(t *testing.T) {
 			name: "NoIDError",
 			fields: fields{
 				mtx:    sync.RWMutex{},
-				images: make(map[string]differentiate.Image),
+				images: make(map[string]differentiating.Image),
 			},
 			args: args{
 				ctx: context.TODO(),
-				img: differentiate.Image{
+				img: differentiating.Image{
 					ID:       "",
 					Registry: "docker.com",
 					Name:     "wiedmannfelix/differ",
@@ -110,11 +110,11 @@ func TestStorage_AddImage(t *testing.T) {
 			name: "ImageAlreadyExists",
 			fields: fields{
 				mtx:    sync.RWMutex{},
-				images: map[string]differentiate.Image{"1": differentiate.Image{ID: "1"}},
+				images: map[string]differentiating.Image{"1": differentiating.Image{ID: "1"}},
 			},
 			args: args{
 				ctx: context.TODO(),
-				img: differentiate.Image{
+				img: differentiating.Image{
 					ID:       "1",
 					Registry: "docker.com",
 					Name:     "wiedmannfelix/differ",
@@ -146,11 +146,11 @@ func TestStorage_AddImage(t *testing.T) {
 func TestStorage_DeleteImage(t *testing.T) {
 	type fields struct {
 		mtx    sync.RWMutex
-		images map[string]differentiate.Image
+		images map[string]differentiating.Image
 	}
 	type args struct {
 		ctx context.Context
-		img differentiate.Image
+		img differentiating.Image
 	}
 	tests := []struct {
 		name    string
@@ -162,11 +162,11 @@ func TestStorage_DeleteImage(t *testing.T) {
 			name: "Valid",
 			fields: fields{
 				mtx:    sync.RWMutex{},
-				images: map[string]differentiate.Image{"1": differentiate.Image{ID: "1"}},
+				images: map[string]differentiating.Image{"1": differentiating.Image{ID: "1"}},
 			},
 			args: args{
 				ctx: context.TODO(),
-				img: differentiate.Image{
+				img: differentiating.Image{
 					ID: "1",
 				},
 			},
@@ -176,11 +176,11 @@ func TestStorage_DeleteImage(t *testing.T) {
 			name: "NoIDError",
 			fields: fields{
 				mtx:    sync.RWMutex{},
-				images: map[string]differentiate.Image{"1": differentiate.Image{ID: "1"}},
+				images: map[string]differentiating.Image{"1": differentiating.Image{ID: "1"}},
 			},
 			args: args{
 				ctx: context.TODO(),
-				img: differentiate.Image{
+				img: differentiating.Image{
 					ID: "",
 				},
 			},
@@ -209,11 +209,11 @@ func TestStorage_DeleteImage(t *testing.T) {
 func TestStorage_UpdateImage(t *testing.T) {
 	type fields struct {
 		mtx    sync.RWMutex
-		images map[string]differentiate.Image
+		images map[string]differentiating.Image
 	}
 	type args struct {
 		ctx context.Context
-		img differentiate.Image
+		img differentiating.Image
 	}
 	tests := []struct {
 		name    string
@@ -225,11 +225,11 @@ func TestStorage_UpdateImage(t *testing.T) {
 			name: "Valid",
 			fields: fields{
 				mtx:    sync.RWMutex{},
-				images: map[string]differentiate.Image{"1": differentiate.Image{ID: "1"}},
+				images: map[string]differentiating.Image{"1": differentiating.Image{ID: "1"}},
 			},
 			args: args{
 				ctx: context.TODO(),
-				img: differentiate.Image{
+				img: differentiating.Image{
 					ID: "1",
 				},
 			},
@@ -239,11 +239,11 @@ func TestStorage_UpdateImage(t *testing.T) {
 			name: "NoIDError",
 			fields: fields{
 				mtx:    sync.RWMutex{},
-				images: map[string]differentiate.Image{"1": differentiate.Image{ID: "1"}},
+				images: map[string]differentiating.Image{"1": differentiating.Image{ID: "1"}},
 			},
 			args: args{
 				ctx: context.TODO(),
-				img: differentiate.Image{
+				img: differentiating.Image{
 					ID: "2",
 				},
 			},
@@ -265,22 +265,22 @@ func TestStorage_UpdateImage(t *testing.T) {
 
 func TestStorage_ListImages(t *testing.T) {
 
-	images := map[string]differentiate.Image{
-		"1": differentiate.Image{
+	images := map[string]differentiating.Image{
+		"1": differentiating.Image{
 			ID:       "1",
 			Registry: "docker.com",
 			Name:     "differ",
 			Tag:      "1.0.0",
 			Auth:     nil,
 		},
-		"2": differentiate.Image{
+		"2": differentiating.Image{
 			ID:       "2",
 			Registry: "github.com",
 			Name:     "differ",
 			Tag:      "1.0.0",
 			Auth:     nil,
 		},
-		"3": differentiate.Image{
+		"3": differentiating.Image{
 			ID:       "3",
 			Registry: "github.com",
 			Name:     "tomcat",
@@ -290,17 +290,17 @@ func TestStorage_ListImages(t *testing.T) {
 	}
 	type fields struct {
 		mtx    sync.RWMutex
-		images map[string]differentiate.Image
+		images map[string]differentiating.Image
 	}
 	type args struct {
 		ctx  context.Context
-		opts differentiate.ListOptions
+		opts differentiating.ListOptions
 	}
 	tests := []struct {
 		name    string
 		fields  fields
 		args    args
-		want    []differentiate.Image
+		want    []differentiating.Image
 		wantErr bool
 	}{
 		{
@@ -311,11 +311,11 @@ func TestStorage_ListImages(t *testing.T) {
 			},
 			args: args{
 				ctx: context.TODO(),
-				opts: differentiate.ListOptions{
+				opts: differentiating.ListOptions{
 					ImageName: "differ",
 				},
 			},
-			want: []differentiate.Image{
+			want: []differentiating.Image{
 				{
 					ID:       "1",
 					Registry: "docker.com",
@@ -341,11 +341,11 @@ func TestStorage_ListImages(t *testing.T) {
 			},
 			args: args{
 				ctx: context.TODO(),
-				opts: differentiate.ListOptions{
+				opts: differentiating.ListOptions{
 					Registry: "docker.com",
 				},
 			},
-			want: []differentiate.Image{
+			want: []differentiating.Image{
 				{
 					ID:       "1",
 					Registry: "docker.com",
@@ -364,12 +364,12 @@ func TestStorage_ListImages(t *testing.T) {
 			},
 			args: args{
 				ctx: context.TODO(),
-				opts: differentiate.ListOptions{
+				opts: differentiating.ListOptions{
 					ImageName: "differ",
 					Registry:  "github.com",
 				},
 			},
-			want: []differentiate.Image{
+			want: []differentiating.Image{
 				{
 					ID:       "2",
 					Registry: "github.com",

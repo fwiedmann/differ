@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package differentiate
+package differentiating
 
 import (
 	"context"
@@ -31,7 +31,7 @@ import (
 
 	"github.com/fwiedmann/differ/pkg/registry"
 
-	tagsanalyzer "github.com/fwiedmann/differ/pkg/tags-analyzer"
+	tagsanalyzer "github.com/fwiedmann/differ/pkg/tags-analyzing"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/ratelimit"
 )

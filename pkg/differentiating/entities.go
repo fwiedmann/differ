@@ -22,25 +22,49 @@
  * SOFTWARE.
  */
 
-package observe
+package differentiating
 
-import (
-	"github.com/fwiedmann/differ/pkg/observe/kubernetesObjectHandler/appsv1/statefulSet"
-)
+import "fmt"
 
-func newAppsV1StatefulSetObserver(config Config) *Observer {
-	kubernetesFactory := initNewKubernetesFactory(config)
-	newObserver := &Observer{
-		kubernetesObjectKind:       "StatefulSet",
-		kubernetesAPIVersion:       "apps/v1",
-		kubernetesSharedInformer:   kubernetesFactory.Apps().V1().StatefulSets().Informer(),
-		observerConfig:             config,
-		newKubernetesObjectHandler: newStatefulSetObjectHandler,
-	}
-	newObserver.initSharedIndexInformerWithHandleFunctions()
-	return newObserver
+type PullSecret struct {
+	Username string
+	Password string
 }
 
-func newStatefulSetObjectHandler(kubernetesAPIObj interface{}) (KubernetesObjectHandler, error) {
-	return statefulSet.NewHandler(kubernetesAPIObj)
+func (p *PullSecret) GetUsername() string {
+	return p.Username
+}
+
+func (p *PullSecret) GetPassword() string {
+	return p.Password
+}
+
+type Image struct {
+	ID       string
+	Registry string
+	Name     string
+	Tag      string
+	Auth     []*PullSecret
+}
+
+func (i Image) GetNameWithoutRegistry() string {
+	return i.Name
+}
+
+func (i Image) GetNameWithRegistry() string {
+	return fmt.Sprintf("%s/%s", i.Registry, i.Name)
+}
+
+func (i Image) GetRegistryURL() string {
+	return i.Registry
+}
+
+type ListOptions struct {
+	ImageName string
+	Registry  string
+}
+
+type NotificationEvent struct {
+	Image  Image
+	NewTag string
 }

@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package differentiate
+package differentiating
 
 import (
 	"context"
@@ -39,6 +39,7 @@ func NewOCIRegistryService(ctx context.Context, rp Repository, initOCIAPIClientF
 		workerNotification:  make(chan NotificationEvent, 100),
 		initOCIAPIClientFun: initOCIAPIClientFun,
 		workerCtx:           ctx,
+		workers:             make(map[string]*Worker),
 	}
 	go ors.multiplexToNotifiers(ctx)
 	return ors

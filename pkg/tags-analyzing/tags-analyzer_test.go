@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package tags_analyzer
+package tags_analyzing
 
 import (
 	"reflect"

@@ -22,52 +22,54 @@
  * SOFTWARE.
  */
 
-package deployment
+package observing
 
 import (
 	"errors"
 
-	coreV1 "k8s.io/api/core/v1"
-
-	"k8s.io/apimachinery/pkg/types"
-
 	appsV1 "k8s.io/api/apps/v1"
+	coreV1 "k8s.io/api/core/v1"
 )
 
-// NewHandler try's to convert the kubernetes API Object to an *appsV1.Deployment.
-// If conversion is not successful will return error.
-func NewHandler(kubernetesAPIObj interface{}) (Handler, error) {
+func NewKubernetesAPPV1DeploymentSerializer(kubernetesAPIObj interface{}) (KubernetesObjectSerializer, error) {
 	convertedDaemonSet, err := convertToDeployment(kubernetesAPIObj)
 	if err != nil {
-		return Handler{}, err
+		return KubernetesAPPV1DeploymentSerializer{}, err
 	}
-	return Handler{convertedDeployment: convertedDaemonSet}, nil
+	return KubernetesAPPV1DeploymentSerializer{convertedDeployment: convertedDaemonSet}, nil
 }
 
 func convertToDeployment(kubernetesAPIObj interface{}) (*appsV1.Deployment, error) {
 	convertedDeployment, ok := kubernetesAPIObj.(*appsV1.Deployment)
 	if !ok {
-		return nil, errors.New("could not parse  apps/appsV1 Deployment object")
+		return nil, errors.New("observing/KubernetesAPPV1DeploymentSerializer error:could not parse  apps/appsV1 Deployment object")
 	}
 	return convertedDeployment, nil
 }
 
-// Handler for kubernetes appV1/Deployment
-type Handler struct {
+// KubernetesAPPV1DeploymentSerializer for kubernetes appV1/Deployment
+type KubernetesAPPV1DeploymentSerializer struct {
 	convertedDeployment *appsV1.Deployment
 }
 
-// GetPodSpec from appV1/Deployment Object
-func (deploymentObjectHandler Handler) GetPodSpec() coreV1.PodSpec {
-	return deploymentObjectHandler.convertedDeployment.Spec.Template.Spec
+func (deploymentObjectSerializer KubernetesAPPV1DeploymentSerializer) GetObjectKind() string {
+	return "Deployment"
 }
 
-// GetNameOfObservedObject from appV1/Deployment Object
-func (deploymentObjectHandler Handler) GetNameOfObservedObject() string {
-	return deploymentObjectHandler.convertedDeployment.Name
+func (deploymentObjectSerializer KubernetesAPPV1DeploymentSerializer) GetName() string {
+	return deploymentObjectSerializer.convertedDeployment.GetName()
+}
+
+func (deploymentObjectSerializer KubernetesAPPV1DeploymentSerializer) GetAPIVersion() string {
+	return "appV1"
+}
+
+// GetPodSpec from appV1/Deployment Object
+func (deploymentObjectSerializer KubernetesAPPV1DeploymentSerializer) GetPodSpec() coreV1.PodSpec {
+	return deploymentObjectSerializer.convertedDeployment.Spec.Template.Spec
 }
 
 // GetUID from appV1/Deployment Object
-func (deploymentObjectHandler Handler) GetUID() types.UID {
-	return deploymentObjectHandler.convertedDeployment.GetUID()
+func (deploymentObjectSerializer KubernetesAPPV1DeploymentSerializer) GetUID() string {
+	return string(deploymentObjectSerializer.convertedDeployment.GetUID())
 }

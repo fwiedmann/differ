@@ -22,52 +22,56 @@
  * SOFTWARE.
  */
 
-package statefulSet
+package observing
 
 import (
 	"errors"
 
-	coreV1 "k8s.io/api/core/v1"
-
-	"k8s.io/apimachinery/pkg/types"
-
 	appsV1 "k8s.io/api/apps/v1"
+	coreV1 "k8s.io/api/core/v1"
 )
 
 // NewHandler try's to convert the kubernetes API Object to an *appsV1.StatefulSet.
 // If conversion is not successful will return error.
-func NewHandler(kubernetesAPIObj interface{}) (Handler, error) {
+func NewKubernetesAPPV1StatefulSetSerializer(kubernetesAPIObj interface{}) (KubernetesObjectSerializer, error) {
 	convertedStatefulSet, err := convertToStateFulSet(kubernetesAPIObj)
 	if err != nil {
-		return Handler{}, err
+		return KubernetesAPPV1StatefulSetSerializer{}, err
 	}
-	return Handler{convertedStatefulSet: convertedStatefulSet}, nil
+	return KubernetesAPPV1StatefulSetSerializer{convertedStatefulSet: convertedStatefulSet}, nil
 }
 
 func convertToStateFulSet(kubernetesAPIObj interface{}) (*appsV1.StatefulSet, error) {
 	convertedStatefulSet, ok := kubernetesAPIObj.(*appsV1.StatefulSet)
 	if !ok {
-		return nil, errors.New("could not parse apps/appsV1 StatefulSet object")
+		return nil, errors.New("observing/KubernetesAPPV1StatefulSetSerializer error:could not parse apps/appsV1 StatefulSet object")
 	}
 	return convertedStatefulSet, nil
 }
 
-// Handler for kubernetes appV1/StatefulSet
-type Handler struct {
+// KubernetesAPPV1StatefulSetSerializer for kubernetes appV1/StatefulSet
+type KubernetesAPPV1StatefulSetSerializer struct {
 	convertedStatefulSet *appsV1.StatefulSet
 }
 
-// GetPodSpec from appV1/StatefulSet Object
-func (statefulSetObjectHandler Handler) GetPodSpec() coreV1.PodSpec {
-	return statefulSetObjectHandler.convertedStatefulSet.Spec.Template.Spec
+func (statefulSetObjectSerializer KubernetesAPPV1StatefulSetSerializer) GetObjectKind() string {
+	return "StatefulSet"
 }
 
-// GetNameOfObservedObject from appV1/StatefulSet Object
-func (statefulSetObjectHandler Handler) GetNameOfObservedObject() string {
-	return statefulSetObjectHandler.convertedStatefulSet.Name
+func (statefulSetObjectSerializer KubernetesAPPV1StatefulSetSerializer) GetName() string {
+	return statefulSetObjectSerializer.convertedStatefulSet.GetName()
+}
+
+func (statefulSetObjectSerializer KubernetesAPPV1StatefulSetSerializer) GetAPIVersion() string {
+	return "appV1"
+}
+
+// GetPodSpec from appV1/StatefulSet Object
+func (statefulSetObjectSerializer KubernetesAPPV1StatefulSetSerializer) GetPodSpec() coreV1.PodSpec {
+	return statefulSetObjectSerializer.convertedStatefulSet.Spec.Template.Spec
 }
 
 // GetUID from appV1/StatefulSet Object
-func (statefulSetObjectHandler Handler) GetUID() types.UID {
-	return statefulSetObjectHandler.convertedStatefulSet.GetUID()
+func (statefulSetObjectSerializer KubernetesAPPV1StatefulSetSerializer) GetUID() string {
+	return string(statefulSetObjectSerializer.convertedStatefulSet.GetUID())
 }

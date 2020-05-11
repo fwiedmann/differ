@@ -22,25 +22,14 @@
  * SOFTWARE.
  */
 
-package observe
+package differentiating
 
-import (
-	"github.com/fwiedmann/differ/pkg/observe/kubernetesObjectHandler/appsv1/daemonSet"
-)
+import "context"
 
-func newAppsV1DaemonSetObserver(config Config) *Observer {
-	kubernetesFactory := initNewKubernetesFactory(config)
-	newObserver := &Observer{
-		kubernetesObjectKind:       "DaemonSet",
-		kubernetesAPIVersion:       "apps/v1",
-		kubernetesSharedInformer:   kubernetesFactory.Apps().V1().DaemonSets().Informer(),
-		observerConfig:             config,
-		newKubernetesObjectHandler: newDaemonSetObjectHandler,
-	}
-	newObserver.initSharedIndexInformerWithHandleFunctions()
-	return newObserver
-}
-
-func newDaemonSetObjectHandler(kubernetesAPIObj interface{}) (KubernetesObjectHandler, error) {
-	return daemonSet.NewHandler(kubernetesAPIObj)
+type Service interface {
+	AddImage(ctx context.Context, image Image) error
+	DeleteImage(ctx context.Context, image Image) error
+	UpdateImage(ctx context.Context, image Image) error
+	ListImages(ctx context.Context, opts ListOptions) ([]Image, error)
+	Notify(event chan<- NotificationEvent)
 }

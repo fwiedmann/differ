@@ -22,51 +22,53 @@
  * SOFTWARE.
  */
 
-package daemonSet
+package observing
 
 import (
 	"errors"
 
-	coreV1 "k8s.io/api/core/v1"
-
-	"k8s.io/apimachinery/pkg/types"
-
 	appsV1 "k8s.io/api/apps/v1"
+	coreV1 "k8s.io/api/core/v1"
 )
 
-// NewHandler try's to convert the kubernetes API Object to an *appsV1.DaemonSet.
-// If conversion is not successful will return error.
-func NewHandler(kubernetesAPIObj interface{}) (Handler, error) {
+func NewKubernetesAPPV1DaemonSetSerializer(kubernetesAPIObj interface{}) (KubernetesObjectSerializer, error) {
 	convertedDaemonSet, err := convertToDaemonSet(kubernetesAPIObj)
 	if err != nil {
-		return Handler{}, err
+		return KubernetesAPPV1DaemonSetSerializer{}, err
 	}
-	return Handler{convertedDaemonSet: convertedDaemonSet}, nil
+	return KubernetesAPPV1DaemonSetSerializer{convertedDaemonSet: convertedDaemonSet}, nil
 }
+
 func convertToDaemonSet(kubernetesAPIObj interface{}) (*appsV1.DaemonSet, error) {
 	convertedDaemonSet, ok := kubernetesAPIObj.(*appsV1.DaemonSet)
 	if !ok {
-		return nil, errors.New("could not parse apps/appsV1 DaemonSet object")
+		return nil, errors.New("observing/KubernetesAPPV1DaemonSetSerializer error: could not parse apps/appsV1 DaemonSet object")
 	}
 	return convertedDaemonSet, nil
 }
 
-// Handler for kubernetes appV1/DaemonSet
-type Handler struct {
+// KubernetesAPPV1DaemonSetSerializer for kubernetes appV1/DaemonSet
+type KubernetesAPPV1DaemonSetSerializer struct {
 	convertedDaemonSet *appsV1.DaemonSet
 }
 
+func (daemonSetObjectSerializer KubernetesAPPV1DaemonSetSerializer) GetObjectKind() string {
+	return "DaemonSet"
+}
+
+func (daemonSetObjectSerializer KubernetesAPPV1DaemonSetSerializer) GetName() string {
+	return daemonSetObjectSerializer.convertedDaemonSet.GetName()
+}
+
+func (daemonSetObjectSerializer KubernetesAPPV1DaemonSetSerializer) GetAPIVersion() string {
+	return "appV1"
+}
+
 // GetPodSpec from appV1/DaemonSet Object
-func (daemonSetObjectHandler Handler) GetPodSpec() coreV1.PodSpec {
-	return daemonSetObjectHandler.convertedDaemonSet.Spec.Template.Spec
+func (daemonSetObjectSerializer KubernetesAPPV1DaemonSetSerializer) GetPodSpec() coreV1.PodSpec {
+	return daemonSetObjectSerializer.convertedDaemonSet.Spec.Template.Spec
 }
 
-// GetNameOfObservedObject from appV1/DaemonSet Object
-func (daemonSetObjectHandler Handler) GetNameOfObservedObject() string {
-	return daemonSetObjectHandler.convertedDaemonSet.Name
-}
-
-// GetUID from appV1/DaemonSet Object
-func (daemonSetObjectHandler Handler) GetUID() types.UID {
-	return daemonSetObjectHandler.convertedDaemonSet.GetUID()
+func (daemonSetObjectSerializer KubernetesAPPV1DaemonSetSerializer) GetUID() string {
+	return string(daemonSetObjectSerializer.convertedDaemonSet.GetUID())
 }
