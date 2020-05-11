@@ -7,7 +7,7 @@ require (
 	github.com/go-playground/validator/v10 v10.1.0
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/prometheus/client_golang v1.2.1
-	github.com/sirupsen/logrus v1.4.2
+	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cobra v0.0.5
 	go.uber.org/atomic v1.5.1 // indirect
 	go.uber.org/ratelimit v0.1.0
