@@ -75,3 +75,7 @@ func (statefulSetObjectSerializer KubernetesAPPV1StatefulSetSerializer) GetPodSp
 func (statefulSetObjectSerializer KubernetesAPPV1StatefulSetSerializer) GetUID() string {
 	return string(statefulSetObjectSerializer.convertedStatefulSet.GetUID())
 }
+
+func (statefulSetObjectSerializer KubernetesAPPV1StatefulSetSerializer) GetNamespace() string {
+	return statefulSetObjectSerializer.convertedStatefulSet.GetNamespace()
+}

@@ -112,7 +112,7 @@ func (c *OciAPIClient) getBearerToken(ctx context.Context, secret OciPullSecret)
 }
 
 func (c *OciAPIClient) getRealmURLFromImageRegistry(ctx context.Context) (url string, err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+c.Image.GetRegistryURL()+"/"+dockerRegistryVersion, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+c.Image.GetRegistryURL()+"/"+dockerRegistryVersion+"/", nil)
 	if err != nil {
 		return "", newAPIErrorF(err, "registries/api error: %s", err)
 	}

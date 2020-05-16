@@ -304,7 +304,7 @@ func Test_image_AppendImagePullSecretsWhichBelongsToImage(t *testing.T) {
 	}
 }
 
-func TestNewImage1(t *testing.T) {
+func TestNewImage(t *testing.T) {
 	type args struct {
 		rawImage      string
 		containerName string
@@ -382,14 +382,14 @@ func TestNewImage1(t *testing.T) {
 		{
 			name: "RegistryLatest",
 			args: args{
-				rawImage:      "gitlab.com/wiedmann/differ",
+				rawImage:      "k8s-gitlab.com/wiedmann/differ",
 				containerName: "container",
 			},
 			want: image{
 				containerName:       "container",
-				name:                "gitlab.com/wiedmann/differ",
+				name:                "k8s-gitlab.com/wiedmann/differ",
 				nameWithoutRegistry: "wiedmann/differ",
-				registry:            "gitlab.com",
+				registry:            "k8s-gitlab.com",
 				tag:                 "latest",
 				pullSecrets:         nil,
 			},
@@ -397,14 +397,14 @@ func TestNewImage1(t *testing.T) {
 		{
 			name: "RegistryWithTag",
 			args: args{
-				rawImage:      "gitlab.com/wiedmann/differ:1.0.0",
+				rawImage:      "k8s-gitlab.com/wiedmann/differ:1.0.0",
 				containerName: "container",
 			},
 			want: image{
 				containerName:       "container",
-				name:                "gitlab.com/wiedmann/differ",
+				name:                "k8s-gitlab.com/wiedmann/differ",
 				nameWithoutRegistry: "wiedmann/differ",
-				registry:            "gitlab.com",
+				registry:            "k8s-gitlab.com",
 				tag:                 "1.0.0",
 				pullSecrets:         nil,
 			},

@@ -38,14 +38,14 @@ import (
 )
 
 func createDaemonSet(name, kind, uid string, pod v1.PodTemplateSpec) *appsV1.DaemonSet {
-
 	return &appsV1.DaemonSet{
 		TypeMeta: metaV1.TypeMeta{
 			Kind: kind,
 		},
 		ObjectMeta: metaV1.ObjectMeta{
-			Name: name,
-			UID:  types.UID(uid),
+			Name:      name,
+			UID:       types.UID(uid),
+			Namespace: "default",
 		},
 		Spec: appsV1.DaemonSetSpec{
 			Template: pod,
@@ -250,6 +250,35 @@ func TestKubernetesAPPV1DaemonSetSerializer_GetUID(t *testing.T) {
 			}
 			if got := daemonSetObjectSerializer.GetUID(); got != tt.want {
 				t.Errorf("GetUID() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestKubernetesAPPV1DaemonSetSerializer_GetNamespace(t *testing.T) {
+	type fields struct {
+		convertedDaemonSet *appsV1.DaemonSet
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   string
+	}{
+		{
+			name: "Valid",
+			fields: fields{
+				convertedDaemonSet: createDaemonSet("test1", "DaemonSet", "187", createPodSpecTemplate("test1", "differ")),
+			},
+			want: "default",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			daemonSetObjectSerializer := KubernetesAPPV1DaemonSetSerializer{
+				convertedDaemonSet: tt.fields.convertedDaemonSet,
+			}
+			if got := daemonSetObjectSerializer.GetNamespace(); got != tt.want {
+				t.Errorf("GetNamespace() = %v, want %v", got, tt.want)
 			}
 		})
 	}

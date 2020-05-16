@@ -27,6 +27,7 @@ package observing
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -45,6 +46,7 @@ type KubernetesObjectSerializer interface {
 	GetName() string
 	GetUID() string
 	GetAPIVersion() string
+	GetNamespace() string
 }
 
 type KubernetesObserverService struct {
@@ -54,7 +56,7 @@ type KubernetesObserverService struct {
 	serializer func(obj interface{}) (KubernetesObjectSerializer, error)
 }
 
-func StartKubernetesObserverService(ctx context.Context, c kubernetes.Interface, informer cache.SharedInformer, ns string, objSerializer func(obj interface{}) (KubernetesObjectSerializer, error), service differentiating.Service) *KubernetesObserverService {
+func StartKubernetesObserverService(ctx context.Context, c kubernetes.Interface, informer cache.SharedInformer, ns string, objSerializer func(obj interface{}) (KubernetesObjectSerializer, error), service differentiating.Service) error {
 	kos := &KubernetesObserverService{
 		ds:         service,
 		client:     c,
@@ -62,19 +64,23 @@ func StartKubernetesObserverService(ctx context.Context, c kubernetes.Interface,
 		serializer: objSerializer,
 	}
 
-	stop := make(chan struct{})
-
 	informer.AddEventHandler(kos)
+	stop := make(chan struct{})
 	go informer.Run(stop)
+
+	syncCtx, syncCancel := context.WithCancel(ctx)
+	defer syncCancel()
+	if synced := cache.WaitForCacheSync(syncCtx.Done(), informer.HasSynced); !synced {
+		return fmt.Errorf("observer/kubernetes: could sync with shared informer cache")
+	}
 
 	serviceCtx, cancel := context.WithCancel(ctx)
 	go func(ctx context.Context) {
-		<-ctx.Done()
+		<-serviceCtx.Done()
 		cancel()
 		stop <- struct{}{}
 	}(serviceCtx)
-
-	return kos
+	return nil
 }
 
 func (k *KubernetesObserverService) OnAdd(obj interface{}) {
@@ -100,7 +106,7 @@ func (k *KubernetesObserverService) handleInformerEvent(operationKind string, ku
 		UID:          o.GetUID(),
 		APIVersion:   o.GetAPIVersion(),
 		ResourceType: o.GetObjectKind(),
-		Namespace:    k.namespace,
+		Namespace:    o.GetNamespace(),
 		WorkloadName: o.GetName(),
 	})
 	if err != nil {
@@ -119,7 +125,6 @@ func (k *KubernetesObserverService) handleInformerEvent(operationKind string, ku
 					Username: p.username,
 					Password: p.password,
 				})
-				log.Infof("%v", p)
 			}
 
 			err <- differntiateServiceOperation(ctx, differentiating.Image{
@@ -148,7 +153,7 @@ func (k *KubernetesObserverService) handleInformerEvent(operationKind string, ku
 
 func (k *KubernetesObserverService) getImagesFromPodSpec(podSpec v1.PodSpec, kubernetesMetaInformation kubernetesAPIObjectMetaInformation) ([]imageWithKubernetesMetadata, error) {
 	extractedImagesFromPodSpec := k.extractImagesFromPodSpec(podSpec)
-	extractedPullSecretsFromPodSpec, err := k.extractPullSecretsFromPodSpec(podSpec)
+	extractedPullSecretsFromPodSpec, err := k.extractPullSecretsFromPodSpec(podSpec, kubernetesMetaInformation.Namespace)
 
 	if err != nil {
 		return []imageWithKubernetesMetadata{}, err
@@ -171,9 +176,9 @@ func (k *KubernetesObserverService) extractImagesFromPodSpec(pod v1.PodSpec) []i
 	return images
 }
 
-func (k *KubernetesObserverService) extractPullSecretsFromPodSpec(pod v1.PodSpec) (map[string][]*pullSecret, error) {
+func (k *KubernetesObserverService) extractPullSecretsFromPodSpec(pod v1.PodSpec, namespace string) (map[string][]*pullSecret, error) {
 	imagePullSecretNames := extractNamesOfImagePullSecretFromPodSpec(pod)
-	return k.getAllImagePullSecretsByRegistry(imagePullSecretNames)
+	return k.getAllImagePullSecretsByRegistry(imagePullSecretNames, namespace)
 }
 
 func extractNamesOfImagePullSecretFromPodSpec(pod v1.PodSpec) []string {
@@ -184,11 +189,11 @@ func extractNamesOfImagePullSecretFromPodSpec(pod v1.PodSpec) []string {
 	return imagePullSecretNames
 }
 
-func (k *KubernetesObserverService) getAllImagePullSecretsByRegistry(ImagePullSecretNames []string) (map[string][]*pullSecret, error) {
+func (k *KubernetesObserverService) getAllImagePullSecretsByRegistry(ImagePullSecretNames []string, namespace string) (map[string][]*pullSecret, error) {
 	allImagePullSecretsFromPodPerRegistry := make(map[string][]*pullSecret)
 
 	for _, secretName := range ImagePullSecretNames {
-		secretFromAPI, err := k.getImagePullSecretFromAPI(secretName)
+		secretFromAPI, err := k.getImagePullSecretFromAPI(secretName, namespace)
 		if err != nil {
 			return make(map[string][]*pullSecret), err
 		}
@@ -202,10 +207,10 @@ func (k *KubernetesObserverService) getAllImagePullSecretsByRegistry(ImagePullSe
 	return allImagePullSecretsFromPodPerRegistry, nil
 }
 
-func (k *KubernetesObserverService) getImagePullSecretFromAPI(secretName string) (*v1.Secret, error) {
+func (k *KubernetesObserverService) getImagePullSecretFromAPI(secretName string, namespace string) (*v1.Secret, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 
-	secret, err := k.client.CoreV1().Secrets(k.namespace).Get(ctx, secretName, metaV1.GetOptions{
+	secret, err := k.client.CoreV1().Secrets(namespace).Get(ctx, secretName, metaV1.GetOptions{
 		TypeMeta: metaV1.TypeMeta{
 			Kind: "kubernetes.io/dockerconfigjson",
 		},

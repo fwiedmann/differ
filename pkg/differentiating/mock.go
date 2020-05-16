@@ -28,28 +28,29 @@ import "context"
 
 // MockService implements the Service interface and should only be used for mocking
 type MockService struct {
-	AddErr, DeleteErr, UpdateErr, ListErr error
-	ListResp                              []Image
+	Add, Delete, Update, ListErr func(i Image) error
+	List                         func(lo ListOptions) ([]Image, error)
+	ListResp                     []Image
 }
 
 // AddImage implements the Service interface
-func (ms MockService) AddImage(_ context.Context, _ Image) error {
-	return ms.AddErr
+func (ms MockService) AddImage(_ context.Context, i Image) error {
+	return ms.Add(i)
 }
 
 // DeleteImage implements the Service interface
-func (ms MockService) DeleteImage(_ context.Context, _ Image) error {
-	return ms.DeleteErr
+func (ms MockService) DeleteImage(_ context.Context, i Image) error {
+	return ms.Delete(i)
 }
 
 // UpdateImage implements the Service interface
-func (ms MockService) UpdateImage(_ context.Context, _ Image) error {
-	return ms.UpdateErr
+func (ms MockService) UpdateImage(_ context.Context, i Image) error {
+	return ms.Update(i)
 }
 
 // ListImages implements the Service interface
-func (ms MockService) ListImages(_ context.Context, _ ListOptions) ([]Image, error) {
-	return ms.ListResp, ms.ListErr
+func (ms MockService) ListImages(_ context.Context, lo ListOptions) ([]Image, error) {
+	return ms.List(lo)
 }
 
 // Notify implements the Service interface

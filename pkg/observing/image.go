@@ -28,6 +28,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -35,14 +37,14 @@ const (
 )
 
 var (
-	regexpDockerHubLibraryLatest  = regexp.MustCompile("^[a-zA-Z]+$")
-	regexpDockerHubLibraryWithTag = regexp.MustCompile("^[a-zA-Z]+:[a-zA-z0-9\\.\\-\\_\\/]+$")
-	regexpDockerHubLatest         = regexp.MustCompile("^[a-zA-Z\\/]+$")
-	regexpDockerHubWithTag        = regexp.MustCompile("^[a-zA-Z\\/]+:[a-zA-z0-9\\.\\-\\_\\/]+$")
-	regexpRegistryLatest          = regexp.MustCompile("^[a-zA-Z\\.]+.[a-z]+\\/[a-z\\/]+$")
-	regexpRegistryWithTag         = regexp.MustCompile("^[a-zA-Z\\.]+.[a-z]+\\/[a-z\\/]+:[a-zA-z0-9\\.\\-\\_\\/]+$")
-	regexpRegistryWithPortLatest  = regexp.MustCompile("^^[a-zA-Z\\.]+.[a-z]+:[0-9]+\\/[a-zA-Z\\/]+$")
-	regexpRegistryWithPortWithTag = regexp.MustCompile("^^[a-zA-Z\\.]+.[a-z]+:[0-9]+\\/[a-zA-Z\\/]+:[a-zA-z0-9\\.\\-\\_\\/]+$")
+	regexpDockerHubLibraryLatest  = regexp.MustCompile("^[\\-a-zA-Z]+$")
+	regexpDockerHubLibraryWithTag = regexp.MustCompile("^[\\-a-zA-Z]+:[a-zA-z0-9\\.\\-\\_\\/]+$")
+	regexpDockerHubLatest         = regexp.MustCompile("^[0-9\\-a-zA-Z\\/]+$")
+	regexpDockerHubWithTag        = regexp.MustCompile("^[0-9\\-a-zA-Z\\/]+:[a-zA-z0-9\\.\\-\\_\\/]+$")
+	regexpRegistryLatest          = regexp.MustCompile("^[a-zA-Z0-9\\.\\-]+.[a-z]+\\/[a-z\\/]+$")
+	regexpRegistryWithTag         = regexp.MustCompile("^[a-zA-Z0-9\\.\\-]+.[a-z]+\\/[0-9\\-a-zA-Z\\/]+:[a-zA-z0-9\\.\\-\\_\\/]+$")
+	regexpRegistryWithPortLatest  = regexp.MustCompile("^^[a-zA-Z0-9\\.\\-]+.[a-z]+:[0-9]+\\/[0-9\\-a-zA-Z\\/]+$")
+	regexpRegistryWithPortWithTag = regexp.MustCompile("^^[a-zA-Z0-9\\.\\-]+.[a-z]+:[0-9]+\\/[0-9\\-a-zA-Z\\/]+:[a-zA-z0-9\\.\\-\\_\\/]+$")
 )
 
 type image struct {
@@ -55,8 +57,14 @@ type image struct {
 }
 
 func NewImage(rawImage, containerName string) (image, error) {
+
+	if rawImage == "" {
+		return image{}, fmt.Errorf("observing/imag error: container %s did not provide image name", containerName)
+	}
+
 	name, tag, err := separateImageAndTag(rawImage)
 	if err != nil {
+		logrus.Error(containerName)
 		return image{}, err
 	}
 
@@ -130,7 +138,7 @@ func separateImageAndTag(rawImage string) (imageName string, imageTag string, er
 		split := strings.Split(rawImage, ":")
 		return fmt.Sprintf("%s:%s", split[0], split[1]), split[2], nil
 	}
-	return "", "", fmt.Errorf("observing/image error: could not analyze image %s, no valid regexepression found", imageName)
+	return "", "", fmt.Errorf("observing/image error: could not analyze image %s, no valid regexepression found", rawImage)
 
 }
 

@@ -38,7 +38,7 @@ run:
 	kubectl delete deployment differ-deployment; echo
 	kubectl apply -f local-dev/k8s
 run_dev:
-	./differ --devmode
+	./differ --devmode --loglevel debug
 
 logs:
 	stern differ

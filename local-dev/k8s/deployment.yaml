@@ -21,7 +21,7 @@ spec:
       containers:
       - name: differ
         image: differ:dev
-        args: ["--loglevel","info"]
+        args: ["--loglevel","debug"]
         ports:
         - containerPort: 8080
           name: metrics

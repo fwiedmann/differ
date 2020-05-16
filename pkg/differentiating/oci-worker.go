@@ -106,7 +106,7 @@ func (w *Worker) startRunning(ctx context.Context) {
 
 			tags, err := w.requestTagsFromAPIWithAllStoredObjects(ctx, images)
 			if err != nil {
-				log.Errorf(err.Error())
+				log.Warnf(err.Error())
 				w.mutex.RUnlock()
 				continue
 			}
@@ -136,7 +136,7 @@ func (w *Worker) requestTagsFromAPIWithAllStoredObjects(ctx context.Context, img
 		}
 		latestError = err
 	}
-	return nil, fmt.Errorf("could not fetch any tags for Image %s, error: %s", imageName, latestError)
+	return nil, fmt.Errorf("differentiate/oci-worker error: could not fetch any tags for Image %s, error: %s", imageName, latestError)
 }
 
 func (w *Worker) requestTagsFromAPIWithSecrets(ctx context.Context, secrets []*PullSecret) ([]string, error) {
@@ -150,7 +150,7 @@ func (w *Worker) requestTagsFromAPIWithSecrets(ctx context.Context, secrets []*P
 		}
 		return tags, nil
 	}
-	return nil, fmt.Errorf("no pull secrets provided to request")
+	return nil, fmt.Errorf("differentiate/oci-worker error: no pull secrets provided to request")
 }
 
 func (w *Worker) requestTagsWithRateLimit(ctx context.Context, s *PullSecret) ([]string, error) {
@@ -167,13 +167,13 @@ func (w *Worker) sendEventForEachStoredObjectIfNewerTagExits(allTagsFromRegistry
 func (w *Worker) sendEventForStoredObjectIfNewerTagExits(img Image, allTagsFromRegistry []string) {
 	tagExpr, err := tagsanalyzer.GetRegexExprForTag(img.Tag)
 	if err != nil {
-		log.Errorf("could not get a tag expression for Image %s with tag %s", img.GetNameWithRegistry(), img.Tag)
+		log.Errorf("differentiate/oci-worker error: could not get a tag expression for Image %s with tag %s", img.GetNameWithRegistry(), img.Tag)
 		return
 	}
 
 	latestTag, err := tagsanalyzer.GetLatestTagWithRegexExpr(allTagsFromRegistry, tagExpr)
 	if err != nil {
-		log.Errorf("registry/worker: %s", err)
+		log.Errorf("differentiate/oci-worker error: %s", err)
 	}
 
 	if img.Tag == latestTag {

@@ -72,3 +72,7 @@ func (daemonSetObjectSerializer KubernetesAPPV1DaemonSetSerializer) GetPodSpec()
 func (daemonSetObjectSerializer KubernetesAPPV1DaemonSetSerializer) GetUID() string {
 	return string(daemonSetObjectSerializer.convertedDaemonSet.GetUID())
 }
+
+func (daemonSetObjectSerializer KubernetesAPPV1DaemonSetSerializer) GetNamespace() string {
+	return daemonSetObjectSerializer.convertedDaemonSet.GetNamespace()
+}

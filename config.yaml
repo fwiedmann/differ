@@ -1,4 +1,4 @@
-namespace: "default"
+namespace: ""
 controllerSleep: "10s"
 metrics:
   port: 8080

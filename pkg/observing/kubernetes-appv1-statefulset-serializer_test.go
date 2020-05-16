@@ -41,8 +41,9 @@ func createStatefulSet(name, kind, uid string, pod v1.PodTemplateSpec) *appsV1.S
 			Kind: kind,
 		},
 		ObjectMeta: metaV1.ObjectMeta{
-			Name: name,
-			UID:  types.UID(uid),
+			Name:      name,
+			UID:       types.UID(uid),
+			Namespace: "default",
 		},
 		Spec: appsV1.StatefulSetSpec{
 			Template: pod,
@@ -235,6 +236,35 @@ func TestKubernetesAPPV1StatefulSetSerializer_GetUID(t *testing.T) {
 			}
 			if got := statefulSetObjectSerializer.GetUID(); got != tt.want {
 				t.Errorf("GetUID() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestKubernetesAPPV1StatefulSetSerializer_GetNamespace(t *testing.T) {
+	type fields struct {
+		convertedStatefulSet *appsV1.StatefulSet
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   string
+	}{
+		{
+			name: "Valid",
+			fields: fields{
+				convertedStatefulSet: createStatefulSet("test1", "StatefulSet", "187", createPodSpecTemplate("test1", "differ")),
+			},
+			want: "default",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			statefulSetObjectSerializer := KubernetesAPPV1StatefulSetSerializer{
+				convertedStatefulSet: tt.fields.convertedStatefulSet,
+			}
+			if got := statefulSetObjectSerializer.GetNamespace(); got != tt.want {
+				t.Errorf("GetNamespace() = %v, want %v", got, tt.want)
 			}
 		})
 	}

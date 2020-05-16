@@ -73,3 +73,7 @@ func (deploymentObjectSerializer KubernetesAPPV1DeploymentSerializer) GetPodSpec
 func (deploymentObjectSerializer KubernetesAPPV1DeploymentSerializer) GetUID() string {
 	return string(deploymentObjectSerializer.convertedDeployment.GetUID())
 }
+
+func (deploymentObjectSerializer KubernetesAPPV1DeploymentSerializer) GetNamespace() string {
+	return deploymentObjectSerializer.convertedDeployment.GetNamespace()
+}

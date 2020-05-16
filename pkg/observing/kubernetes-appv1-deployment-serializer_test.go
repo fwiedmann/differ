@@ -41,8 +41,9 @@ func createDeployment(name, kind, uid string, pod v1.PodTemplateSpec) *appsV1.De
 			Kind: kind,
 		},
 		ObjectMeta: metaV1.ObjectMeta{
-			Name: name,
-			UID:  types.UID(uid),
+			Name:      name,
+			UID:       types.UID(uid),
+			Namespace: "default",
 		},
 		Spec: appsV1.DeploymentSpec{
 			Template: pod,
@@ -235,6 +236,35 @@ func TestKubernetesAPPV1DeploymentSerializer_GetUID(t *testing.T) {
 			}
 			if got := deploymentObjectSerializer.GetUID(); got != tt.want {
 				t.Errorf("GetUID() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestKubernetesAPPV1DeploymentSerializer_GetNamespace(t *testing.T) {
+	type fields struct {
+		convertedDeployment *appsV1.Deployment
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   string
+	}{
+		{
+			name: "Valid",
+			fields: fields{
+				convertedDeployment: createDeployment("test1", "Deployment", "187", createPodSpecTemplate("test1", "differ")),
+			},
+			want: "default",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			deploymentObjectSerializer := KubernetesAPPV1DeploymentSerializer{
+				convertedDeployment: tt.fields.convertedDeployment,
+			}
+			if got := deploymentObjectSerializer.GetNamespace(); got != tt.want {
+				t.Errorf("GetNamespace() = %v, want %v", got, tt.want)
 			}
 		})
 	}

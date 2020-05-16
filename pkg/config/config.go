@@ -50,7 +50,7 @@ type GitRemote struct {
 
 // ControllerConfig holds required controller configuration
 type ControllerConfig struct {
-	Namespace  string          `yaml:"namespace" validate:"required"`
+	Namespace  string          `yaml:"namespace"`
 	GitRemotes []GitRemote     `yaml:"remotes,omitempty" validate:"dive,required"`
 	Metrics    MetricsEndpoint `yaml:"metrics"  validate:"required,dive,required"`
 	LogLevel   string          `yaml:"loglevel,omitempty"`
@@ -125,7 +125,6 @@ func initConfig(configPath string) (*ControllerConfig, error) {
 		return nil, err
 	}
 	log.Debugf("Parsed config: %+v", config)
-
 	return config, nil
 
 }

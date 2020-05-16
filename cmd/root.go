@@ -48,10 +48,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type controller interface {
-	Start(ctx context.Context)
-}
-
 func init() {
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "./config.yaml", "Path to differ config file")
 	rootCmd.Flags().String("loglevel", "info", "Set loglevel. Default is info")
@@ -93,28 +89,34 @@ var rootCmd = cobra.Command{
 		event := make(chan differentiating.NotificationEvent)
 		service.Notify(event)
 
-		appv1DaemonSetInformer := informers.NewSharedInformerFactoryWithOptions(kubernetesAPIClient, 0, informers.WithNamespace(conf.Namespace)).Apps().V1().DaemonSets().Informer()
-		observing.StartKubernetesObserverService(ctx, kubernetesAPIClient, appv1DaemonSetInformer, conf.Namespace, observing.NewKubernetesAPPV1DaemonSetSerializer, service)
+		sharedInformerFactory := informers.NewSharedInformerFactoryWithOptions(kubernetesAPIClient, 0, informers.WithNamespace(conf.Namespace))
+		appv1DaemonSetInformer := sharedInformerFactory.Apps().V1().DaemonSets().Informer()
+		err = observing.StartKubernetesObserverService(ctx, kubernetesAPIClient, appv1DaemonSetInformer, conf.Namespace, observing.NewKubernetesAPPV1DaemonSetSerializer, service)
+		if err != nil {
+			return err
+		}
 
-		appv1DeploymentInformer := informers.NewSharedInformerFactoryWithOptions(kubernetesAPIClient, 0, informers.WithNamespace(conf.Namespace)).Apps().V1().Deployments().Informer()
-		observing.StartKubernetesObserverService(ctx, kubernetesAPIClient, appv1DeploymentInformer, conf.Namespace, observing.NewKubernetesAPPV1DeploymentSerializer, service)
+		appv1DeploymentInformer := sharedInformerFactory.Apps().V1().Deployments().Informer()
+		err = observing.StartKubernetesObserverService(ctx, kubernetesAPIClient, appv1DeploymentInformer, conf.Namespace, observing.NewKubernetesAPPV1DeploymentSerializer, service)
+		if err != nil {
+			return err
+		}
 
-		appv1StatefulSetInformer := informers.NewSharedInformerFactoryWithOptions(kubernetesAPIClient, 0, informers.WithNamespace(conf.Namespace)).Apps().V1().StatefulSets().Informer()
-		observing.StartKubernetesObserverService(ctx, kubernetesAPIClient, appv1StatefulSetInformer, conf.Namespace, observing.NewKubernetesAPPV1StatefulSetSerializer, service)
-		controllerErrorChan := make(chan error)
+		appv1StatefulSetInformer := sharedInformerFactory.Apps().V1().StatefulSets().Informer()
+		err = observing.StartKubernetesObserverService(ctx, kubernetesAPIClient, appv1StatefulSetInformer, conf.Namespace, observing.NewKubernetesAPPV1StatefulSetSerializer, service)
+		if err != nil {
+			return err
+		}
 
 		osNotifyChan := initOSNotifyChan()
 		for {
 			select {
 			case e := <-event:
-				log.Infof("%+v", e)
+				log.Debugf("%+v", e)
 			case osSignal := <-osNotifyChan:
 				log.Warnf("received os %s signal, start  graceful shutdown of controller...", osSignal.String())
 				cancel()
 				return nil
-			case err := <-controllerErrorChan:
-				cancel()
-				return err
 			}
 		}
 
