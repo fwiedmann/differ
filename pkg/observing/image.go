@@ -37,14 +37,14 @@ const (
 )
 
 var (
-	regexpDockerHubLibraryLatest  = regexp.MustCompile("^[\\-a-zA-Z]+$")
-	regexpDockerHubLibraryWithTag = regexp.MustCompile("^[\\-a-zA-Z]+:[a-zA-z0-9\\.\\-\\_\\/]+$")
-	regexpDockerHubLatest         = regexp.MustCompile("^[0-9\\-a-zA-Z\\/]+$")
-	regexpDockerHubWithTag        = regexp.MustCompile("^[0-9\\-a-zA-Z\\/]+:[a-zA-z0-9\\.\\-\\_\\/]+$")
-	regexpRegistryLatest          = regexp.MustCompile("^[a-zA-Z0-9\\.\\-]+.[a-z]+\\/[a-z\\/]+$")
-	regexpRegistryWithTag         = regexp.MustCompile("^[a-zA-Z0-9\\.\\-]+.[a-z]+\\/[0-9\\-a-zA-Z\\/]+:[a-zA-z0-9\\.\\-\\_\\/]+$")
-	regexpRegistryWithPortLatest  = regexp.MustCompile("^^[a-zA-Z0-9\\.\\-]+.[a-z]+:[0-9]+\\/[0-9\\-a-zA-Z\\/]+$")
-	regexpRegistryWithPortWithTag = regexp.MustCompile("^^[a-zA-Z0-9\\.\\-]+.[a-z]+:[0-9]+\\/[0-9\\-a-zA-Z\\/]+:[a-zA-z0-9\\.\\-\\_\\/]+$")
+	regexpDockerHubLibraryLatest  = regexp.MustCompile(`^[\-a-zA-Z]+$`)
+	regexpDockerHubLibraryWithTag = regexp.MustCompile(`^[\-a-zA-Z]+:[a-zA-z0-9\.\-\_\/]+$`)
+	regexpDockerHubLatest         = regexp.MustCompile(`^[0-9\-a-zA-Z\/]+$`)
+	regexpDockerHubWithTag        = regexp.MustCompile(`^[0-9\-a-zA-Z\/]+:[a-zA-z0-9\.\-\_\/]+$`)
+	regexpRegistryLatest          = regexp.MustCompile(`^[a-zA-Z0-9\.\-]+.[a-z]+\/[a-z\/]+$`)
+	regexpRegistryWithTag         = regexp.MustCompile(`^[a-zA-Z0-9\.\-]+.[a-z]+\/[0-9\-a-zA-Z\/]+:[a-zA-z0-9\.\-\_\/]+$`)
+	regexpRegistryWithPortLatest  = regexp.MustCompile(`^[a-zA-Z0-9\.\-]+.[a-z]+:[0-9]+\/[0-9\-a-zA-Z\/]+$`)
+	regexpRegistryWithPortWithTag = regexp.MustCompile(`^[a-zA-Z0-9\.\-]+.[a-z]+:[0-9]+\/[0-9\-a-zA-Z\/]+:[a-zA-z0-9\.\-\_\/]+$`)
 )
 
 type image struct {

@@ -77,6 +77,7 @@ var rootCmd = cobra.Command{
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
 		storage := memory.NewMemoryStorage()
 
@@ -119,7 +120,6 @@ var rootCmd = cobra.Command{
 				return nil
 			}
 		}
-
 	},
 }
 
