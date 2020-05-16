@@ -26,10 +26,15 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"k8s.io/client-go/kubernetes"
+
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/client-go/informers"
 
@@ -70,14 +75,17 @@ var rootCmd = cobra.Command{
 		if err != nil {
 			return err
 		}
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
 		kubernetesAPIClient, err := kubernetes_client.InitKubernetesAPIClient(isDevMode)
 		if err != nil {
 			return err
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		if err := checkKubernetesAPIPermissions(ctx, kubernetesAPIClient, conf.Namespace); err != nil {
+			return err
+		}
 
 		storage := memory.NewMemoryStorage()
 
@@ -133,4 +141,36 @@ func initOSNotifyChan() <-chan os.Signal {
 func Execute(version string) error {
 	rootCmd.Version = version
 	return rootCmd.Execute()
+}
+
+func checkKubernetesAPIPermissions(ctx context.Context, c kubernetes.Interface, namespace string) error {
+	var isErr bool
+	_, err := c.AppsV1().Deployments(namespace).List(ctx, metaV1.ListOptions{})
+	if err != nil {
+		isErr = true
+		log.Error(err)
+	}
+
+	_, err = c.AppsV1().StatefulSets(namespace).List(ctx, metaV1.ListOptions{})
+	if err != nil {
+		isErr = true
+		log.Error(err)
+	}
+
+	_, err = c.AppsV1().DaemonSets(namespace).List(ctx, metaV1.ListOptions{})
+	if err != nil {
+		isErr = true
+		log.Error(err)
+	}
+
+	_, err = c.CoreV1().Secrets(namespace).List(ctx, metaV1.ListOptions{})
+	if err != nil {
+		isErr = true
+		log.Error(err)
+	}
+
+	if isErr {
+		return fmt.Errorf("differ error: please check your kubernetes API permissions")
+	}
+	return nil
 }
