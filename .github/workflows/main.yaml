@@ -6,8 +6,8 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
       - name: Go test with race and coverage
-        uses: actions/setup-go@v2
         run: |
           go test -coverprofile=coverage.txt -race -covermode=atomic ./...
       - name: Upload coverage to Codecov
@@ -35,8 +35,8 @@ jobs:
         run: |
           wget  https://github.com/Nightapes/go-semantic-release/releases/download/1.4.1/go-semantic-release
           chmod +x go-semantic-release
+      - uses: actions/setup-go@v2
       - name: Go build
-        uses: actions/setup-go@v2
         run: |
           CGO_ENABLED=0 go build -o differ -ldflags ""-w -s -X main.version=$(./go-semantic-release next)"
       - name: Upload binary
