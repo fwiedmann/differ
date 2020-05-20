@@ -97,6 +97,11 @@ var (
 		tags: imageRemoteTags,
 		err:  nil,
 	}
+
+	ociAPIErrorMock = ociAPIClientMOCK{
+		tags: imageRemoteTags,
+		err:  fmt.Errorf("error"),
+	}
 	rl       = ratelimit.New(5)
 	infoChan = make(chan NotificationEvent)
 )
@@ -179,7 +184,7 @@ func TestStartNewImageWorker(t *testing.T) {
 		{
 			name: "ImageWithAuthAPIError",
 			args: args{
-				client:      ociAPIClientMOCK{err: fmt.Errorf("error")},
+				client:      ociAPIErrorMock,
 				registry:    imageWithAuth.Registry,
 				imageName:   imageWithAuth.Name,
 				rateLimiter: rl,
@@ -193,7 +198,7 @@ func TestStartNewImageWorker(t *testing.T) {
 				mutex:       sync.RWMutex{},
 				informChan:  infoChan,
 				rateLimiter: rl,
-				client:      ociAPIClientMOCK{err: fmt.Errorf("error")},
+				client:      ociAPIErrorMock,
 			},
 		},
 	}
