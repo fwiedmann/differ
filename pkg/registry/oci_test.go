@@ -340,7 +340,7 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 				Client: http.Client{
 					Transport: roundTripper{
 						map[string]func(request *http.Request) (*http.Response, error){
-							fmt.Sprintf("%s/v2", imageWithoutAuth.registryURL):                                                                   validRealmRequest,
+							fmt.Sprintf("%s/v2/", imageWithoutAuth.registryURL):                                                                  validRealmRequest,
 							fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", testRealm, testRealmService, imageWithoutAuth.withoutRegistry): validTokenRequest,
 							fmt.Sprintf("%s/%s/%s/tags/list", imageWithoutAuth.registryURL, "v2", imageWithoutAuth.withoutRegistry):              validTagRequest,
 						},
@@ -362,7 +362,7 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 				Client: http.Client{
 					Transport: roundTripper{
 						map[string]func(request *http.Request) (*http.Response, error){
-							fmt.Sprintf("%s/v2", imageWithoutAuth.registryURL):                                                                   validRealmRequest,
+							fmt.Sprintf("%s/v2/", imageWithoutAuth.registryURL):                                                                  validRealmRequest,
 							fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", testRealm, testRealmService, imageWithoutAuth.withoutRegistry): validTokenRequest,
 							fmt.Sprintf("%s/%s/%s/tags/list", imageWithoutAuth.registryURL, "v2", imageWithoutAuth.withoutRegistry):              validTagRequest,
 						},
@@ -387,7 +387,7 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 				Client: http.Client{
 					Transport: roundTripper{
 						map[string]func(request *http.Request) (*http.Response, error){
-							fmt.Sprintf("%s/v2", imageWithoutAuth.registryURL): invalidRequestError,
+							fmt.Sprintf("%s/v2/", imageWithoutAuth.registryURL): invalidRequestError,
 						},
 					},
 				},
@@ -407,7 +407,7 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 				Client: http.Client{
 					Transport: roundTripper{
 						map[string]func(request *http.Request) (*http.Response, error){
-							fmt.Sprintf("%s/v2", imageWithoutAuth.registryURL): invalidRealmRequestStatusCode,
+							fmt.Sprintf("%s/v2/", imageWithoutAuth.registryURL): invalidRealmRequestStatusCode,
 						},
 					},
 				},
@@ -427,7 +427,7 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 				Client: http.Client{
 					Transport: roundTripper{
 						map[string]func(request *http.Request) (*http.Response, error){
-							fmt.Sprintf("%s/v2", imageWithoutAuth.registryURL): invalidRealmRequestHeaderNotFound,
+							fmt.Sprintf("%s/v2/", imageWithoutAuth.registryURL): invalidRealmRequestHeaderNotFound,
 						},
 					},
 				},
@@ -447,7 +447,7 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 				Client: http.Client{
 					Transport: roundTripper{
 						map[string]func(request *http.Request) (*http.Response, error){
-							fmt.Sprintf("%s/v2", imageWithoutAuth.registryURL): invalidRealmRequestHeaderNoRealmURL,
+							fmt.Sprintf("%s/v2/", imageWithoutAuth.registryURL): invalidRealmRequestHeaderNoRealmURL,
 						},
 					},
 				},
@@ -467,7 +467,7 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 				Client: http.Client{
 					Transport: roundTripper{
 						map[string]func(request *http.Request) (*http.Response, error){
-							fmt.Sprintf("%s/v2", imageWithoutAuth.registryURL): invalidRealmRequestHeaderNoService,
+							fmt.Sprintf("%s/v2/", imageWithoutAuth.registryURL): invalidRealmRequestHeaderNoService,
 						},
 					},
 				},
@@ -487,7 +487,7 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 				Client: http.Client{
 					Transport: roundTripper{
 						map[string]func(request *http.Request) (*http.Response, error){
-							fmt.Sprintf("%s/v2", imageWithoutAuth.registryURL):                                                                   validRealmRequest,
+							fmt.Sprintf("%s/v2/", imageWithoutAuth.registryURL):                                                                  validRealmRequest,
 							fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", testRealm, testRealmService, imageWithoutAuth.withoutRegistry): invalidTokenRequestStatusUnauthorized,
 						},
 					},
@@ -508,7 +508,7 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 				Client: http.Client{
 					Transport: roundTripper{
 						map[string]func(request *http.Request) (*http.Response, error){
-							fmt.Sprintf("%s/v2", imageWithoutAuth.registryURL):                                                                   validRealmRequest,
+							fmt.Sprintf("%s/v2/", imageWithoutAuth.registryURL):                                                                  validRealmRequest,
 							fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", testRealm, testRealmService, imageWithoutAuth.withoutRegistry): invalidTokenRequestStatusForbidden,
 						},
 					},
@@ -529,7 +529,7 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 				Client: http.Client{
 					Transport: roundTripper{
 						map[string]func(request *http.Request) (*http.Response, error){
-							fmt.Sprintf("%s/v2", imageWithoutAuth.registryURL):                                                                   validRealmRequest,
+							fmt.Sprintf("%s/v2/", imageWithoutAuth.registryURL):                                                                  validRealmRequest,
 							fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", testRealm, testRealmService, imageWithoutAuth.withoutRegistry): invalidTokenRequestStatusNotFound,
 						},
 					},
@@ -550,7 +550,7 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 				Client: http.Client{
 					Transport: roundTripper{
 						map[string]func(request *http.Request) (*http.Response, error){
-							fmt.Sprintf("%s/v2", imageWithoutAuth.registryURL):                                                                   validRealmRequest,
+							fmt.Sprintf("%s/v2/", imageWithoutAuth.registryURL):                                                                  validRealmRequest,
 							fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", testRealm, testRealmService, imageWithoutAuth.withoutRegistry): invalidRequestError,
 						},
 					},
@@ -571,7 +571,7 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 				Client: http.Client{
 					Transport: roundTripper{
 						map[string]func(request *http.Request) (*http.Response, error){
-							fmt.Sprintf("%s/v2", imageWithoutAuth.registryURL):                                                                   validRealmRequest,
+							fmt.Sprintf("%s/v2/", imageWithoutAuth.registryURL):                                                                  validRealmRequest,
 							fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", testRealm, testRealmService, imageWithoutAuth.withoutRegistry): invalidTokenRequestEmptyToken,
 						},
 					},
@@ -592,7 +592,7 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 				Client: http.Client{
 					Transport: roundTripper{
 						map[string]func(request *http.Request) (*http.Response, error){
-							fmt.Sprintf("%s/v2", imageWithoutAuth.registryURL):                                                                   validRealmRequest,
+							fmt.Sprintf("%s/v2/", imageWithoutAuth.registryURL):                                                                  validRealmRequest,
 							fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", testRealm, testRealmService, imageWithoutAuth.withoutRegistry): validTokenRequest,
 							fmt.Sprintf("%s/%s/%s/tags/list", imageWithoutAuth.registryURL, "v2", imageWithoutAuth.withoutRegistry):              invalidTagRequestError,
 						},
@@ -614,7 +614,7 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 				Client: http.Client{
 					Transport: roundTripper{
 						map[string]func(request *http.Request) (*http.Response, error){
-							fmt.Sprintf("%s/v2", imageWithoutAuth.registryURL):                                                                   validRealmRequest,
+							fmt.Sprintf("%s/v2/", imageWithoutAuth.registryURL):                                                                  validRealmRequest,
 							fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", testRealm, testRealmService, imageWithoutAuth.withoutRegistry): validTokenRequest,
 							fmt.Sprintf("%s/%s/%s/tags/list", imageWithoutAuth.registryURL, "v2", imageWithoutAuth.withoutRegistry):              invalidTagRequestStatusUnauthorized,
 						},
@@ -636,7 +636,7 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 				Client: http.Client{
 					Transport: roundTripper{
 						map[string]func(request *http.Request) (*http.Response, error){
-							fmt.Sprintf("%s/v2", imageWithoutAuth.registryURL):                                                                   validRealmRequest,
+							fmt.Sprintf("%s/v2/", imageWithoutAuth.registryURL):                                                                  validRealmRequest,
 							fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", testRealm, testRealmService, imageWithoutAuth.withoutRegistry): validTokenRequest,
 							fmt.Sprintf("%s/%s/%s/tags/list", imageWithoutAuth.registryURL, "v2", imageWithoutAuth.withoutRegistry):              invalidTagRequestStatusForbidden,
 						},
@@ -658,7 +658,7 @@ func TestOciAPIClient_GetTagsForImage(t *testing.T) {
 				Client: http.Client{
 					Transport: roundTripper{
 						map[string]func(request *http.Request) (*http.Response, error){
-							fmt.Sprintf("%s/v2", imageWithoutAuth.registryURL):                                                                   validRealmRequest,
+							fmt.Sprintf("%s/v2/", imageWithoutAuth.registryURL):                                                                  validRealmRequest,
 							fmt.Sprintf("%s?service=%s&scope=repository:%s:pull", testRealm, testRealmService, imageWithoutAuth.withoutRegistry): validTokenRequest,
 							fmt.Sprintf("%s/%s/%s/tags/list", imageWithoutAuth.registryURL, "v2", imageWithoutAuth.withoutRegistry):              invalidTagRequestStatusNotFound,
 						},
