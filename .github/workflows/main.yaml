@@ -19,11 +19,11 @@ jobs:
 
   lint:
     name: lint
-      runs-on: ubuntu-18.04
-      steps:
-        - uses: actions/checkout@v2
-        - name: Golangci-lint
-          uses: actions-contrib/golangci-lint@v1
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Golangci-lint
+        uses: actions-contrib/golangci-lint@v1
 
   build:
     name: go build
