@@ -64,6 +64,8 @@ jobs:
         uses: actions/download-artifact@v1
         with:
           name: go-build-binary
+      - name: move binary to working dir
+        run: mv go-build-binary/differ .
       - name: build-docker-latest
         uses: docker/build-push-action@v1
         with:
