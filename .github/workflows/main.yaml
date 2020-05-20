@@ -42,7 +42,7 @@ jobs:
       - uses: actions/setup-go@v2
       - name: Go build
         run: |
-          CGO_ENABLED=0 go build -o differ -ldflags ""-w -s -X main.version=$(./go-semantic-release next)"
+          CGO_ENABLED=0 go build -o differ -ldflags "-w -s -X main.version=$(./go-semantic-release next)"
       - name: Upload binary
         uses: actions/upload-artifact@v1
         with:
