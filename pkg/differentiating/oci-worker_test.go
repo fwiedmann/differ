@@ -144,7 +144,7 @@ func TestStartNewImageWorker(t *testing.T) {
 		{
 			name: "ImageWithoutAuthAPIError",
 			args: args{
-				client:      ociAPIClientMOCK{err: fmt.Errorf("error")},
+				client:      ociAPIErrorMock,
 				registry:    imageWithoutAuth.Registry,
 				imageName:   imageWithoutAuth.Name,
 				rateLimiter: rl,
@@ -158,7 +158,7 @@ func TestStartNewImageWorker(t *testing.T) {
 				mutex:       sync.RWMutex{},
 				informChan:  infoChan,
 				rateLimiter: rl,
-				client:      ociAPIClientMOCK{err: fmt.Errorf("error")},
+				client:      ociAPIErrorMock,
 			},
 		},
 		{
