@@ -35,7 +35,9 @@ jobs:
       - uses: actions/checkout@v2
       - name: Init go-semantic-release
         run: |
-          wget  https://github.com/Nightapes/go-semantic-release/releases/download/v1.4.1/go-semantic-release.linux_x86_64.zip
+          curl -L -o go-semantic-release.zip  https://github.com/Nightapes/go-semantic-release/releases/download/v1.3.1/go-semantic-release.linux_x86_64.zip
+          unzip go-semantic-release.zip
+          mv go-semantic-release.linux_x86_64 go-semantic-release
           chmod +x go-semantic-release
       - uses: actions/setup-go@v2
       - name: Go build
