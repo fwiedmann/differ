@@ -24,7 +24,8 @@ jobs:
       - uses: actions/checkout@v2
       - name: Golangci-lint
         uses: actions-contrib/golangci-lint@v1
-        args: --timeout 5m
+        with:
+          args: run --timeout 5m
 
   build:
     name: go build
