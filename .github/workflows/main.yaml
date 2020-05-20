@@ -36,19 +36,19 @@ jobs:
           wget  https://github.com/Nightapes/go-semantic-release/releases/download/1.4.1/go-semantic-release
           chmod +x go-semantic-release
       - name: Go build
-          uses: actions/setup-go@v2
-          run: |
-            CGO_ENABLED=0 go build -o differ -ldflags ""-w -s -X main.version=$(./go-semantic-release next)"
+        uses: actions/setup-go@v2
+        run: |
+          CGO_ENABLED=0 go build -o differ -ldflags ""-w -s -X main.version=$(./go-semantic-release next)"
       - name: Upload binary
-          uses: actions/upload-artifact@v1
-          with:
-            name: go-build-binary
-            path: differ
+        uses: actions/upload-artifact@v1
+        with:
+          name: go-build-binary
+          path: differ
       - name: Upload binary semantic release
-          uses: actions/upload-artifact@v1
-          with:
-            name: releaser-tool
-            path: go-semantic-release
+        uses: actions/upload-artifact@v1
+        with:
+          name: releaser-tool
+          path: go-semantic-release
 
   build-docker:
     name: build docker images
@@ -57,9 +57,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Download go-build binary
-          uses: actions/download-artifact@v1
-          with:
-            name: go-build-binary
+        uses: actions/download-artifact@v1
+        with:
+          name: go-build-binary
       - name: build-docker-latest
         uses: docker/build-push-action@v1
         with:
