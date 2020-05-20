@@ -125,10 +125,10 @@ func TestStorage_AddImage(t *testing.T) {
 			wantErr: true,
 		},
 	}
-	for _, tt := range tests {
+	for _, tt := range tests { //nolint
 		t.Run(tt.name, func(t *testing.T) {
 			s := Storage{
-				mtx:    tt.fields.mtx,
+				mtx:    tt.fields.mtx, //nolint
 				images: tt.fields.images,
 			}
 			err := s.AddImage(tt.args.ctx, tt.args.img)
@@ -187,10 +187,10 @@ func TestStorage_DeleteImage(t *testing.T) {
 			wantErr: true,
 		},
 	}
-	for _, tt := range tests {
+	for _, tt := range tests { //nolint
 		t.Run(tt.name, func(t *testing.T) {
 			s := Storage{
-				mtx:    tt.fields.mtx,
+				mtx:    tt.fields.mtx, //nolint
 				images: tt.fields.images,
 			}
 
@@ -250,10 +250,10 @@ func TestStorage_UpdateImage(t *testing.T) {
 			wantErr: true,
 		},
 	}
-	for _, tt := range tests {
+	for _, tt := range tests { //nolint
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Storage{
-				mtx:    tt.fields.mtx,
+				mtx:    tt.fields.mtx, //nolint
 				images: tt.fields.images,
 			}
 			if err := s.UpdateImage(tt.args.ctx, tt.args.img); (err != nil) != tt.wantErr {
@@ -381,10 +381,10 @@ func TestStorage_ListImages(t *testing.T) {
 			wantErr: false,
 		},
 	}
-	for _, tt := range tests {
+	for _, tt := range tests { //nolint
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Storage{
-				mtx:    tt.fields.mtx,
+				mtx:    tt.fields.mtx, //nolint
 				images: tt.fields.images,
 			}
 			got, err := s.ListImages(tt.args.ctx, tt.args.opts)

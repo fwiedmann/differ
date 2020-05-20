@@ -239,7 +239,7 @@ func TestStartKubernetesObserverService(t *testing.T) {
 
 			defer cancel()
 			tt.want.client = tt.args.c
-			StartKubernetesObserverService(ctx, tt.args.c, i, tt.args.ns, tt.args.objSerializer, differentiatingServiceMock)
+			_ = StartKubernetesObserverService(ctx, tt.args.c, i, tt.args.ns, tt.args.objSerializer, differentiatingServiceMock)
 
 			go tt.args.createWorkload(t, ctx, tt.args.c)
 			<-ctx.Done()

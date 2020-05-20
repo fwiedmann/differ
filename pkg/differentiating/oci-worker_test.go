@@ -104,7 +104,6 @@ var (
 func TestStartNewImageWorker(t *testing.T) {
 
 	type args struct {
-		ctx         context.Context
 		client      OciRegistryAPIClient
 		registry    string
 		imageName   string
@@ -241,13 +240,13 @@ func TestWorker_Stop(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests {
+	for _, tt := range tests { //nolint
 		t.Run(tt.name, func(t *testing.T) {
 			w := &Worker{
 				imageName:   tt.fields.imageName,
 				registry:    tt.fields.registry,
 				rp:          tt.fields.rp,
-				mutex:       tt.fields.mutex,
+				mutex:       tt.fields.mutex, //nolint
 				informChan:  tt.fields.informChan,
 				rateLimiter: tt.fields.rateLimiter,
 				client:      tt.fields.client,

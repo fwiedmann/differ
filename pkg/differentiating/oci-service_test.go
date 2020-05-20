@@ -82,6 +82,7 @@ func TestNewOCIRegistryService(t *testing.T) {
 	apiClient := ociAPIClientMOCK{}
 	rp := repositoryMock{}
 	workerCtx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 	initAPIClientFun := func(_ http.Client, _ registry.OciImage) OciRegistryAPIClient {
 		return &apiClient
 	}
@@ -110,8 +111,6 @@ func TestNewOCIRegistryService(t *testing.T) {
 			if !ok {
 				t.Errorf("NewOCIRegistryService() = returned service is not the type of OCIRegistryService")
 			}
-			cancel()
-
 		})
 	}
 }
@@ -222,7 +221,7 @@ func TestOCIRegistryService_AddImage(t *testing.T) {
 		},
 	}
 	defer cancel()
-	for _, tt := range tests {
+	for _, tt := range tests { //nolint
 
 		t.Run(tt.name, func(t *testing.T) {
 			O := &OCIRegistryService{
@@ -230,7 +229,7 @@ func TestOCIRegistryService_AddImage(t *testing.T) {
 				workers:             tt.fields.workers,
 				notifiers:           tt.fields.notifiers,
 				workerNotification:  tt.fields.workerNotification,
-				workerMtx:           tt.fields.workerMtx,
+				workerMtx:           tt.fields.workerMtx, //nolint
 				workerCtx:           tt.fields.workerCtx,
 				initOCIAPIClientFun: tt.fields.initOCIAPIClientFun,
 			}
@@ -254,7 +253,6 @@ func TestOCIRegistryService_DeleteImage(t *testing.T) {
 		notifiers           []chan<- NotificationEvent
 		workerNotification  chan NotificationEvent
 		workerMtx           sync.Mutex
-		workerCtx           context.Context
 		initOCIAPIClientFun func(c http.Client, img registry.OciImage) OciRegistryAPIClient
 	}
 	type args struct {
@@ -374,7 +372,7 @@ func TestOCIRegistryService_DeleteImage(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests {
+	for _, tt := range tests { //nolint
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 
@@ -383,7 +381,7 @@ func TestOCIRegistryService_DeleteImage(t *testing.T) {
 				workers:             tt.fields.workers,
 				notifiers:           tt.fields.notifiers,
 				workerNotification:  tt.fields.workerNotification,
-				workerMtx:           tt.fields.workerMtx,
+				workerMtx:           tt.fields.workerMtx, //nolint
 				workerCtx:           ctx,
 				initOCIAPIClientFun: tt.fields.initOCIAPIClientFun,
 			}
@@ -456,14 +454,14 @@ func TestOCIRegistryService_UpdateImage(t *testing.T) {
 			wantErr: true,
 		},
 	}
-	for _, tt := range tests {
+	for _, tt := range tests { //nolint
 		t.Run(tt.name, func(t *testing.T) {
 			O := &OCIRegistryService{
 				rp:                  tt.fields.rp,
 				workers:             tt.fields.workers,
 				notifiers:           tt.fields.notifiers,
 				workerNotification:  tt.fields.workerNotification,
-				workerMtx:           tt.fields.workerMtx,
+				workerMtx:           tt.fields.workerMtx, //nolint
 				workerCtx:           tt.fields.workerCtx,
 				initOCIAPIClientFun: tt.fields.initOCIAPIClientFun,
 			}
@@ -516,14 +514,14 @@ func TestOCIRegistryService_ListImages(t *testing.T) {
 			wantErr: true,
 		},
 	}
-	for _, tt := range tests {
+	for _, tt := range tests { //nolint
 		t.Run(tt.name, func(t *testing.T) {
 			O := &OCIRegistryService{
 				rp:                  tt.fields.rp,
 				workers:             tt.fields.workers,
 				notifiers:           tt.fields.notifiers,
 				workerNotification:  tt.fields.workerNotification,
-				workerMtx:           tt.fields.workerMtx,
+				workerMtx:           tt.fields.workerMtx, //nolint
 				workerCtx:           tt.fields.workerCtx,
 				initOCIAPIClientFun: tt.fields.initOCIAPIClientFun,
 			}
@@ -547,7 +545,6 @@ func TestOCIRegistryService_Notify(t *testing.T) {
 
 	type fields struct {
 		rp                  Repository
-		workerCtx           context.Context
 		initOCIAPIClientFun func(c http.Client, img registry.OciImage) OciRegistryAPIClient
 	}
 	type args struct {

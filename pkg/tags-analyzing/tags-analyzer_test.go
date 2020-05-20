@@ -40,9 +40,9 @@ func TestGetRegexExprForTag(t *testing.T) {
 		want    *regexp.Regexp
 		wantErr bool
 	}{
-		{name: "Valid1", args: args{tag: "1.14.2-nanoserver-1809"}, want: regexp.MustCompile("^\\d+.\\d+.\\d+-nanoserver-\\d+$"), wantErr: false},
-		{name: "Valid2", args: args{tag: "8.5-jdk14-openjdk-oracle"}, want: regexp.MustCompile("^\\d+.\\d+-jdk\\d+-openjdk-oracle$"), wantErr: false},
-		{name: "Valid3", args: args{tag: "v2.17.0"}, want: regexp.MustCompile("^v\\d+.\\d+.\\d+$"), wantErr: false},
+		{name: "Valid1", args: args{tag: "1.14.2-nanoserver-1809"}, want: regexp.MustCompile(`^\d+.\d+.\d+-nanoserver-\d+$`), wantErr: false},
+		{name: "Valid2", args: args{tag: "8.5-jdk14-openjdk-oracle"}, want: regexp.MustCompile(`^\d+.\d+-jdk\d+-openjdk-oracle$`), wantErr: false},
+		{name: "Valid3", args: args{tag: "v2.17.0"}, want: regexp.MustCompile(`^v\d+.\d+.\d+$`), wantErr: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
