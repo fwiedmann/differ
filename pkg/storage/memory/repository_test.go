@@ -392,9 +392,20 @@ func TestStorage_ListImages(t *testing.T) {
 				t.Errorf("ListImages() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ListImages() got = %v, want %v", got, tt.want)
+
+			for _, wantImage := range tt.want {
+				var found bool
+				for _, gotImage := range got {
+					if reflect.DeepEqual(wantImage, gotImage) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("ListImages() got = %v, want %v", got, tt.want)
+				}
 			}
+
 		})
 	}
 }
