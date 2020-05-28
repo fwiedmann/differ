@@ -30,6 +30,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/fwiedmann/differ/pkg/monitoring"
+
 	log "github.com/sirupsen/logrus"
 
 	"k8s.io/client-go/tools/cache"
@@ -38,6 +40,12 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+)
+
+const (
+	addingOperation = "create"
+	updateOperation = "update"
+	deleteOperation = "delete"
 )
 
 type KubernetesObjectSerializer interface {
@@ -84,15 +92,15 @@ func StartKubernetesObserverService(ctx context.Context, c kubernetes.Interface,
 }
 
 func (k *KubernetesObserverService) OnAdd(obj interface{}) {
-	k.handleInformerEvent("adding", obj, k.ds.AddImage)
+	k.handleInformerEvent(addingOperation, obj, k.ds.AddImage)
 }
 
 func (k *KubernetesObserverService) OnUpdate(_, newObj interface{}) {
-	k.handleInformerEvent("update", newObj, k.ds.UpdateImage)
+	k.handleInformerEvent(updateOperation, newObj, k.ds.UpdateImage)
 }
 
 func (k *KubernetesObserverService) OnDelete(obj interface{}) {
-	k.handleInformerEvent("deletion", obj, k.ds.DeleteImage)
+	k.handleInformerEvent(deleteOperation, obj, k.ds.DeleteImage)
 }
 
 func (k *KubernetesObserverService) handleInformerEvent(operationKind string, kubernetesObj interface{}, differntiateServiceOperation func(ctx context.Context, i differentiating.Image) error) {
@@ -141,7 +149,9 @@ func (k *KubernetesObserverService) handleInformerEvent(operationKind string, ku
 			if err != nil {
 				log.Errorf("observing/kubernetes error: %s", err)
 			}
+
 			cancel()
+			updateMetric(operationKind, kubernetesImage)
 			return
 		case <-ctx.Done():
 			cancel()
@@ -263,4 +273,12 @@ func createEventForEachImage(images []image, kubernetesMetaInformation kubernete
 		})
 	}
 	return
+}
+
+func updateMetric(operationKind string, obj imageWithKubernetesMetadata) {
+	var val float64 = 1
+	if operationKind == deleteOperation {
+		val = 0
+	}
+	monitoring.KubernetesObservedContainerMetric.WithLabelValues(obj.Image.GetContainerName(), obj.Image.GetRegistryURL(), obj.Image.GetNameWithRegistry(), obj.Image.GetTag(), obj.MetaInformation.Namespace, obj.MetaInformation.APIVersion, obj.MetaInformation.ResourceType, obj.MetaInformation.UID, obj.MetaInformation.WorkloadName).Set(val)
 }

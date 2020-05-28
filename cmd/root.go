@@ -31,6 +31,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
+
+	"github.com/fwiedmann/differ/pkg/monitoring"
 
 	"k8s.io/client-go/kubernetes"
 
@@ -117,6 +120,21 @@ var rootCmd = cobra.Command{
 			return err
 		}
 
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", monitoring.MetricsHandler())
+
+		server := http.Server{
+			Addr:              ":8080",
+			Handler:           mux,
+			ReadTimeout:       time.Second * 10,
+			ReadHeaderTimeout: 0,
+			WriteTimeout:      time.Second,
+		}
+
+		go func() {
+			panic(server.ListenAndServe())
+		}()
+
 		osNotifyChan := initOSNotifyChan()
 		for {
 			select {
@@ -124,6 +142,13 @@ var rootCmd = cobra.Command{
 				log.Debugf("%+v", e)
 			case osSignal := <-osNotifyChan:
 				log.Warnf("received os %s signal, start  graceful shutdown of controller...", osSignal.String())
+				shutdownCtx, shutdownCtxCancel := context.WithTimeout(context.Background(), time.Second*10)
+
+				if err := server.Shutdown(shutdownCtx); err != nil {
+					log.Error(err)
+				}
+
+				shutdownCtxCancel()
 				cancel()
 				return nil
 			}

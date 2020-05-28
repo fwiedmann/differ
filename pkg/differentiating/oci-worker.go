@@ -29,6 +29,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/fwiedmann/differ/pkg/monitoring"
+
 	"github.com/fwiedmann/differ/pkg/registry"
 
 	tagsanalyzer "github.com/fwiedmann/differ/pkg/tags-analyzing"
@@ -180,5 +182,6 @@ func (w *Worker) sendEventForStoredObjectIfNewerTagExits(img Image, allTagsFromR
 		return
 	}
 
+	monitoring.OciImageNewerTagAvailableMetric.WithLabelValues(img.GetNameWithRegistry(), img.GetRegistryURL(), img.Tag, latestTag, tagExpr.String()).Set(1)
 	w.informChan <- NotificationEvent{Image: img, NewTag: latestTag}
 }

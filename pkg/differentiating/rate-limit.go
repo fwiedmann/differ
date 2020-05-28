@@ -41,7 +41,7 @@ func createRateLimitForRegistry(registry string) ratelimit.Limiter {
 		registryRateLimitsMtx.Unlock()
 		return rl
 	}
-	rl := ratelimit.New(5)
+	rl := ratelimit.New(1)
 	registryRateLimits[registry] = rl
 	registryRateLimitsMtx.Unlock()
 	return rl
