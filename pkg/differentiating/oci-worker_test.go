@@ -115,6 +115,7 @@ func TestStartNewImageWorker(t *testing.T) {
 		rateLimiter ratelimit.Limiter
 		info        chan NotificationEvent
 		repository  ListImagesRepository
+		dur         time.Duration
 	}
 	tests := []struct {
 		name string
@@ -205,7 +206,7 @@ func TestStartNewImageWorker(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
-			worker := StartNewImageWorker(ctx, tt.args.client, tt.args.registry, tt.args.imageName, tt.args.rateLimiter, tt.args.info, tt.args.repository)
+			worker := StartNewImageWorker(ctx, tt.args.client, tt.args.registry, tt.args.imageName, tt.args.rateLimiter, tt.args.info, tt.args.repository, tt.args.dur)
 			tt.want.stop = worker.stop
 			if !reflect.DeepEqual(worker, tt.want) {
 				t.Errorf("StartNewImageWorker() = %+v, want %+v", worker, tt.want)

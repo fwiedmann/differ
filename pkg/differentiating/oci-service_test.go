@@ -90,6 +90,7 @@ func TestNewOCIRegistryService(t *testing.T) {
 		ctx                 context.Context
 		rp                  Repository
 		initOCIAPIClientFun func(c http.Client, img registry.OciImage) OciRegistryAPIClient
+		dur                 time.Duration
 	}
 	tests := []struct {
 		name string
@@ -106,7 +107,7 @@ func TestNewOCIRegistryService(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewOCIRegistryService(tt.args.ctx, tt.args.rp, tt.args.initOCIAPIClientFun)
+			svc := NewOCIRegistryService(tt.args.ctx, tt.args.rp, tt.args.dur, tt.args.initOCIAPIClientFun)
 			_, ok := svc.(*OCIRegistryService)
 			if !ok {
 				t.Errorf("NewOCIRegistryService() = returned service is not the type of OCIRegistryService")
@@ -546,6 +547,7 @@ func TestOCIRegistryService_Notify(t *testing.T) {
 	type fields struct {
 		rp                  Repository
 		initOCIAPIClientFun func(c http.Client, img registry.OciImage) OciRegistryAPIClient
+		dur                 time.Duration
 	}
 	type args struct {
 		event chan NotificationEvent
@@ -569,7 +571,7 @@ func TestOCIRegistryService_Notify(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
-			ociService := NewOCIRegistryService(ctx, tt.fields.rp, tt.fields.initOCIAPIClientFun)
+			ociService := NewOCIRegistryService(ctx, tt.fields.rp, tt.fields.dur, tt.fields.initOCIAPIClientFun)
 			ociService.Notify(tt.args.event)
 
 			val, ok := ociService.(*OCIRegistryService)

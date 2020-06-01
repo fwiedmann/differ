@@ -26,8 +26,10 @@ package differentiating
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/fwiedmann/differ/pkg/monitoring"
 
@@ -46,31 +48,32 @@ type ListImagesRepository interface {
 	ListImages(ctx context.Context, opts ListOptions) ([]Image, error)
 }
 
-func StartNewImageWorker(ctx context.Context, client OciRegistryAPIClient, registry, imageName string, rateLimiter ratelimit.Limiter, info chan<- NotificationEvent, repository ListImagesRepository) *Worker {
-
+func StartNewImageWorker(ctx context.Context, client OciRegistryAPIClient, registry, imageName string, rateLimiter ratelimit.Limiter, info chan<- NotificationEvent, repository ListImagesRepository, workerAPIRequestSleepDuration time.Duration) *Worker {
 	newWorker := Worker{
-		client:      client,
-		registry:    registry,
-		imageName:   imageName,
-		rp:          repository,
-		mutex:       sync.RWMutex{},
-		informChan:  info,
-		rateLimiter: rateLimiter,
-		stop:        make(chan struct{}),
+		client:                  client,
+		registry:                registry,
+		imageName:               imageName,
+		rp:                      repository,
+		mutex:                   sync.RWMutex{},
+		informChan:              info,
+		rateLimiter:             rateLimiter,
+		stop:                    make(chan struct{}),
+		apiRequestSleepDuration: workerAPIRequestSleepDuration,
 	}
 	go newWorker.startRunning(ctx)
 	return &newWorker
 }
 
 type Worker struct {
-	imageName   string
-	registry    string
-	rp          ListImagesRepository
-	mutex       sync.RWMutex
-	informChan  chan<- NotificationEvent
-	rateLimiter ratelimit.Limiter
-	client      OciRegistryAPIClient
-	stop        chan struct{}
+	imageName               string
+	registry                string
+	rp                      ListImagesRepository
+	mutex                   sync.RWMutex
+	informChan              chan<- NotificationEvent
+	rateLimiter             ratelimit.Limiter
+	client                  OciRegistryAPIClient
+	stop                    chan struct{}
+	apiRequestSleepDuration time.Duration
 }
 
 func (w *Worker) Stop() {
@@ -90,6 +93,7 @@ func (w *Worker) startRunning(ctx context.Context) {
 			cancel()
 			return
 		default:
+			time.Sleep(w.apiRequestSleepDuration)
 			images, err := w.rp.ListImages(imageWorkerCtx, ListOptions{
 				ImageName: w.imageName,
 				Registry:  w.registry,
@@ -108,6 +112,7 @@ func (w *Worker) startRunning(ctx context.Context) {
 
 			tags, err := w.requestTagsFromAPIWithAllStoredObjects(ctx, images)
 			if err != nil {
+				w.updateOCIRegistryMetrics(err)
 				log.Warnf(err.Error())
 				w.mutex.RUnlock()
 				continue
@@ -138,7 +143,7 @@ func (w *Worker) requestTagsFromAPIWithAllStoredObjects(ctx context.Context, img
 		}
 		latestError = err
 	}
-	return nil, fmt.Errorf("differentiate/oci-worker error: could not fetch any tags for Image %s, error: %s", imageName, latestError)
+	return nil, fmt.Errorf("differentiate/oci-worker error: could not fetch any tags for Image %s, error: %w", imageName, latestError)
 }
 
 func (w *Worker) requestTagsFromAPIWithSecrets(ctx context.Context, secrets []*PullSecret) ([]string, error) {
@@ -184,4 +189,19 @@ func (w *Worker) sendEventForStoredObjectIfNewerTagExits(img Image, allTagsFromR
 
 	monitoring.OciImageNewerTagAvailableMetric.WithLabelValues(img.GetNameWithRegistry(), img.GetRegistryURL(), img.Tag, latestTag, tagExpr.String()).Set(1)
 	w.informChan <- NotificationEvent{Image: img, NewTag: latestTag}
+}
+
+func (w *Worker) updateOCIRegistryMetrics(err error) {
+	if errors.Is(err, registry.StatusUnauthorizedError) {
+		monitoring.OciRegistryUnauthorizedErrorMetric.WithLabelValues(w.imageName, w.registry).Inc()
+	}
+	if errors.Is(err, registry.StatusForbiddenError) {
+		monitoring.OciRegistryForbiddenErrorMetric.WithLabelValues(w.imageName, w.registry).Inc()
+	}
+	if errors.Is(err, registry.StatusToManyRequests) {
+		monitoring.OciRegistryToManyRequestsErrorMetric.WithLabelValues(w.imageName, w.registry).Inc()
+	}
+	if err != nil {
+		monitoring.OciRegistryNoTagsFoundMetric.WithLabelValues(w.imageName, w.registry).Inc()
+	}
 }

@@ -27,6 +27,7 @@ package registry
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -34,6 +35,13 @@ import (
 	"regexp"
 	"strings"
 	"time"
+)
+
+var (
+	UnknownAPIResponseError = errors.New("API error")
+	StatusUnauthorizedError = errors.New("403")
+	StatusForbiddenError    = errors.New("401")
+	StatusToManyRequests    = errors.New("429")
 )
 
 const (
@@ -86,7 +94,7 @@ func (c *OciAPIClient) GetTagsForImage(ctx context.Context, secret OciPullSecret
 	}
 
 	tags, err := c.getTags(ctx)
-	if _, ok := err.(PermissionsError); ok {
+	if errors.Is(err, StatusUnauthorizedError) || errors.Is(err, StatusForbiddenError) {
 		err := c.getBearerToken(ctx, secret)
 		if err != nil {
 			return nil, err
@@ -114,12 +122,12 @@ func (c *OciAPIClient) getBearerToken(ctx context.Context, secret OciPullSecret)
 func (c *OciAPIClient) getRealmURLFromImageRegistry(ctx context.Context) (url string, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+c.Image.GetRegistryURL()+"/"+dockerRegistryVersion+"/", nil)
 	if err != nil {
-		return "", newAPIErrorF(err, "registries/api error: %s", err)
+		return "", fmt.Errorf("registries/api error: %w", err)
 	}
 
 	resp, err := c.Do(req)
 	if err != nil {
-		return "", newAPIErrorF(err, "registries/api error: %s", err)
+		return "", fmt.Errorf("registries/api error: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
@@ -128,16 +136,16 @@ func (c *OciAPIClient) getRealmURLFromImageRegistry(ctx context.Context) (url st
 	}()
 
 	if resp.StatusCode != http.StatusUnauthorized {
-		return "", newAPIErrorF(err, "registries/api error: invalid response code %d from %s registries when trying to get realm URL for bearer token for Image %s. Registry does not follow the %s header standard. %d is required", resp.StatusCode, c.Image.GetRegistryURL(), c.Image.GetNameWithoutRegistry(), httpAuthenticateHeader, http.StatusUnauthorized)
+		return "", fmt.Errorf("registries/api %w: invalid response code %d from %s registries when trying to get realm URL for bearer token for Image %s. Registry does not follow the %s header standard. %d is required", UnknownAPIResponseError, resp.StatusCode, c.Image.GetRegistryURL(), c.Image.GetNameWithoutRegistry(), httpAuthenticateHeader, http.StatusUnauthorized)
 	}
 
 	respHeader := resp.Header.Get(httpAuthenticateHeader)
 	if respHeader == "" {
-		return "", newAPIErrorF(nil, "Header \"%s\" is empty for requested url \"%s\"", httpAuthenticateHeader, c.Image.GetRegistryURL())
+		return "", fmt.Errorf("registry/api %w: Header \"%s\" is empty for requested url \"%s\"", UnknownAPIResponseError, httpAuthenticateHeader, c.Image.GetRegistryURL())
 	}
 
 	if !isValidHeader(bearerRealmRegex, respHeader) {
-		return "", newAPIErrorF(nil, "\"%s\" header does not contain any bearer realm information", httpAuthenticateHeader)
+		return "", fmt.Errorf("\"registry/api %w: \"%s\" header does not contain any bearer realm information", UnknownAPIResponseError, httpAuthenticateHeader)
 	}
 
 	headerValues := strings.Split(respHeader, ",")
@@ -161,7 +169,7 @@ func (c *OciAPIClient) generateRealmURLWithService(realm, service string) string
 func (c *OciAPIClient) getBearerTokenFromRealm(ctx context.Context, realmURL string, secret OciPullSecret) (token string, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, realmURL, nil)
 	if err != nil {
-		return "", newAPIErrorF(err, "registries/api error: %s", err)
+		return "", fmt.Errorf("registries/api %w: %s", UnknownAPIResponseError, err)
 	}
 
 	if reflect.ValueOf(secret).Kind() == reflect.Ptr && !reflect.ValueOf(secret).IsNil() {
@@ -170,7 +178,7 @@ func (c *OciAPIClient) getBearerTokenFromRealm(ctx context.Context, realmURL str
 
 	resp, err := c.Do(req)
 	if err != nil {
-		return "", newAPIErrorF(err, "registries/api error: %s", err)
+		return "", fmt.Errorf("registries/api %w: %s", UnknownAPIResponseError, err)
 	}
 
 	defer func() {
@@ -185,15 +193,15 @@ func (c *OciAPIClient) getBearerTokenFromRealm(ctx context.Context, realmURL str
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", newAPIErrorF(err, "registries/api error: %s", err)
+		return "", fmt.Errorf("registries/api %w: %s", UnknownAPIResponseError, err)
 	}
 	var t bearerToken
 	if err := json.Unmarshal(body, &t); err != nil {
-		return "", newAPIErrorF(err, "registries/api error: %s", err)
+		return "", fmt.Errorf("registries/api %w: %s", UnknownAPIResponseError, err)
 	}
 
 	if t.Token == "" {
-		return "", newAPIErrorF(nil, "registry/api error: bearer token is empty in response %+v", t)
+		return "", fmt.Errorf("registry/api %w: bearer token is empty in response %+v", UnknownAPIResponseError, t)
 	}
 	return t.Token, nil
 }
@@ -201,13 +209,13 @@ func (c *OciAPIClient) getBearerTokenFromRealm(ctx context.Context, realmURL str
 func (c *OciAPIClient) getTags(ctx context.Context) ([]string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.generateGetTagsURL(), nil)
 	if err != nil {
-		return nil, newAPIErrorF(err, "registries/api error: %s", err)
+		return nil, fmt.Errorf("registries/api %w: %s", UnknownAPIResponseError, err)
 	}
 	req.Header.Set("Authorization", "Bearer "+c.bearerToken)
 
 	resp, err := c.Do(req)
 	if err != nil {
-		return nil, newAPIErrorF(err, "registries/api error: %s", err)
+		return nil, fmt.Errorf("registries/api %w: %s", UnknownAPIResponseError, err)
 	}
 
 	defer func() {
@@ -223,12 +231,12 @@ func (c *OciAPIClient) getTags(ctx context.Context) ([]string, error) {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, newAPIErrorF(err, "registries/api error: %s", err)
+		return nil, fmt.Errorf("registries/api %w: %s", UnknownAPIResponseError, err)
 	}
 
 	var tags tagList
 	if err := json.Unmarshal(body, &tags); err != nil {
-		return nil, newAPIErrorF(err, "registries/api error: %s", err)
+		return nil, fmt.Errorf("registries/api %w: %s", UnknownAPIResponseError, err)
 	}
 
 	return tags.Tags, nil
@@ -246,11 +254,13 @@ const (
 func handleResponseCodeOfResponse(resp *http.Response) error {
 	switch {
 	case resp.StatusCode == http.StatusUnauthorized:
-		return newPermissionsError(nil, "registries/api status %s on requesting %s, please check your permissions", resp.Status, resp.Request.URL.String())
+		return fmt.Errorf("registries/api status %w on requesting %s, please check your permissions", StatusUnauthorizedError, resp.Request.URL.String())
 	case resp.StatusCode == http.StatusForbidden:
-		return newPermissionsError(nil, "registries/api status %s on requesting %s, please check your permissions", resp.Status, resp.Request.URL.String())
+		return fmt.Errorf("registries/api status %w on requesting %s, please check your permissions", StatusForbiddenError, resp.Request.URL.String())
+	case resp.StatusCode == http.StatusTooManyRequests:
+		return fmt.Errorf("registries/api status %w on requesting %s, please check your permissions", StatusToManyRequests, resp.Request.URL.String())
 	case resp.StatusCode >= 300:
-		return newAPIErrorF(nil, "registries/api status %s on requesting %s", resp.Status, resp.Request.URL.String())
+		return fmt.Errorf("registries/api %w: status %s on requesting %s", UnknownAPIResponseError, resp.Status, resp.Request.URL.String())
 	default:
 		return nil
 	}
@@ -265,7 +275,7 @@ func extractRealmURL(header string) (string, error) {
 	r := regexp.MustCompile(urlRegex)
 	url := r.FindString(header)
 	if url == "" {
-		return "", newAPIErrorF(nil, "header '%s' does not contain a valid URL", header)
+		return "", fmt.Errorf("registries/api %w: header '%s' does not contain a valid URL", UnknownAPIResponseError, header)
 	}
 	return url, nil
 }
@@ -274,7 +284,7 @@ func extractService(header string) (string, error) {
 	r := regexp.MustCompile(serviceRegex)
 	service := r.FindString(header)
 	if service == "" {
-		return "", newAPIErrorF(nil, "header '%s' does not contain a valid URL", header)
+		return "", fmt.Errorf("registries/api %w: header '%s' does not contain a valid URL", UnknownAPIResponseError, header)
 	}
 	return strings.Replace(service, "\"", "", -1), nil
 }

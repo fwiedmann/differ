@@ -52,6 +52,8 @@ import (
 
 	"github.com/fwiedmann/differ/pkg/storage/memory"
 
+	_ "net/http/pprof"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -92,7 +94,7 @@ var rootCmd = cobra.Command{
 
 		storage := memory.NewMemoryStorage()
 
-		service := differentiating.NewOCIRegistryService(ctx, storage, func(c http.Client, img registry.OciImage) differentiating.OciRegistryAPIClient {
+		service := differentiating.NewOCIRegistryService(ctx, storage, conf.ParsedRegistryRequestSleepDuration, func(c http.Client, img registry.OciImage) differentiating.OciRegistryAPIClient {
 			return &registry.OciAPIClient{
 				Image:  img,
 				Client: c,
@@ -132,6 +134,10 @@ var rootCmd = cobra.Command{
 		}
 
 		go func() {
+			panic(http.ListenAndServe(":9090", nil))
+		}()
+
+		go func() {
 			panic(server.ListenAndServe())
 		}()
 
@@ -140,6 +146,8 @@ var rootCmd = cobra.Command{
 			select {
 			case e := <-event:
 				log.Debugf("%+v", e)
+			case <-ctx.Done():
+				return nil
 			case osSignal := <-osNotifyChan:
 				log.Warnf("received os %s signal, start  graceful shutdown of controller...", osSignal.String())
 				shutdownCtx, shutdownCtxCancel := context.WithTimeout(context.Background(), time.Second*10)

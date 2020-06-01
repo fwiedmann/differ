@@ -44,10 +44,40 @@ var (
 		Help:        "Represents a oci image with the current and the latest available tag",
 		ConstLabels: nil,
 	}, []string{"image", "registry_url", "image_tag", "latest_tag", "tag_regex_expression"})
+
+	OciRegistryUnauthorizedErrorMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "differ_oci_registry_unauthorized_error",
+		Help:        "OCI registry request was denied by remote because of 403",
+		ConstLabels: nil,
+	}, []string{"image", "registry_url"})
+
+	OciRegistryForbiddenErrorMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "differ_oci_registry_forbidden_error",
+		Help:        "OCI registry request was denied by remote because of 401",
+		ConstLabels: nil,
+	}, []string{"image", "registry_url"})
+
+	OciRegistryToManyRequestsErrorMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "differ_oci_registry_to_many_requests_error",
+		Help:        "OCI registry to many request to remote",
+		ConstLabels: nil,
+	}, []string{"image", "registry_url"})
+
+	OciRegistryAPIErrorMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "differ_oci_registry_api_error",
+		Help:        "OCI registry request unknown error occurred",
+		ConstLabels: nil,
+	}, []string{"image", "registry_url"})
+
+	OciRegistryNoTagsFoundMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "differ_oci_registry_no_tags_found",
+		Help:        "OCI registry request could not get any tags",
+		ConstLabels: nil,
+	}, []string{"image", "registry_url"})
 )
 
 func MetricsHandler() http.Handler {
 	metricsRegistry := prometheus.NewRegistry()
-	metricsRegistry.MustRegister(prometheus.NewGoCollector(), prometheus.NewBuildInfoCollector(), KubernetesObservedContainerMetric, OciImageNewerTagAvailableMetric)
+	metricsRegistry.MustRegister(prometheus.NewGoCollector(), prometheus.NewBuildInfoCollector(), KubernetesObservedContainerMetric, OciImageNewerTagAvailableMetric, OciRegistryUnauthorizedErrorMetric, OciRegistryForbiddenErrorMetric, OciRegistryAPIErrorMetric, OciRegistryNoTagsFoundMetric, OciRegistryToManyRequestsErrorMetric)
 	return promhttp.HandlerFor(metricsRegistry, promhttp.HandlerOpts{})
 }

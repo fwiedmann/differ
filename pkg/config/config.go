@@ -27,6 +27,7 @@ package config
 import (
 	"io/ioutil"
 	"sync"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 
@@ -50,12 +51,14 @@ type GitRemote struct {
 
 // ControllerConfig holds required controller configuration
 type ControllerConfig struct {
-	Namespace  string          `yaml:"namespace"`
-	GitRemotes []GitRemote     `yaml:"remotes,omitempty" validate:"dive,required"`
-	Metrics    MetricsEndpoint `yaml:"metrics"  validate:"required,dive,required"`
-	LogLevel   string          `yaml:"loglevel,omitempty"`
-	configPath string          `yaml:"-"`
-	Version    string          `yaml:"-"`
+	Namespace                            string          `yaml:"namespace"`
+	UnparsedRegistryRequestSleepDuration string          `yaml:"registryRequestSleepDuration,omitempty"`
+	GitRemotes                           []GitRemote     `yaml:"remotes,omitempty" validate:"dive,required"`
+	Metrics                              MetricsEndpoint `yaml:"metrics"  validate:"required,dive,required"`
+	LogLevel                             string          `yaml:"loglevel,omitempty"`
+	ParsedRegistryRequestSleepDuration   time.Duration   `yaml:"-"`
+	configPath                           string          `yaml:"-"`
+	Version                              string          `yaml:"-"`
 }
 
 type Config struct {
@@ -120,6 +123,16 @@ func initConfig(configPath string) (*ControllerConfig, error) {
 	if err := validate.Struct(config); err != nil {
 		return nil, err
 	}
+
+	if config.UnparsedRegistryRequestSleepDuration == "" {
+		config.UnparsedRegistryRequestSleepDuration = "5s"
+	}
+
+	dur, err := time.ParseDuration(config.UnparsedRegistryRequestSleepDuration)
+	if err != nil {
+		return nil, err
+	}
+	config.ParsedRegistryRequestSleepDuration = dur
 
 	if err = setLoglevel(config.LogLevel); err != nil {
 		return nil, err

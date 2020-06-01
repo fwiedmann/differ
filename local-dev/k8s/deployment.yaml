@@ -25,6 +25,8 @@ spec:
         ports:
         - containerPort: 8080
           name: metrics
+        - containerPort: 9090
+          name: pprof
         imagePullPolicy: Never
         volumeMounts:
             - name: differ-config
@@ -86,3 +88,6 @@ spec:
   - name: metrics
     port: 9100
     targetPort: 8080
+  - name: pprof
+    port: 9090
+    targetPort: 9090
