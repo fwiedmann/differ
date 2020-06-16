@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package tags_analyzing
+package analyzing
 
 type tagInfo struct {
 	digits   []int
