@@ -49,7 +49,7 @@ func GetExactRegexExprForTag(tag string) (*regexp.Regexp, error) {
 // It try's to exchange the digits with the onyDigits expression.
 func GetRegexExprForTag(tag string) (*regexp.Regexp, error) {
 	repl := numberRegex.ReplaceAllString(tag, onlyDigits)
-	return regexp.Compile(fmt.Sprintf("%s", repl))
+	return regexp.Compile(repl)
 }
 
 // GetLatestTagWithRegexExpr filters valid tags for the given expression and sort those. The latest valid tag will be returned
