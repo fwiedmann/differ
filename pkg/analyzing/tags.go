@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package tags_analyzing
+package analyzing
 
 import (
 	"fmt"
@@ -37,10 +37,19 @@ const onlyDigits = "\\d+"
 
 var numberRegex = regexp.MustCompile(onlyDigits)
 
-// GetRegexExprForTag creates a regex expression dynamically for the given tag. It try's to exchange the digits with the onyDigits expression.
-func GetRegexExprForTag(tag string) (*regexp.Regexp, error) {
+// GetExactRegexExprForTag creates a regex expression dynamically for the given tag.
+// It try's to exchange the digits with the onyDigits expression.
+// Regex expression includes the delimiter "^" on the first position and "$" on the last position.
+func GetExactRegexExprForTag(tag string) (*regexp.Regexp, error) {
 	repl := numberRegex.ReplaceAllString(tag, onlyDigits)
 	return regexp.Compile(fmt.Sprintf("^%s$", repl))
+}
+
+// GetRegexExprForTag creates a regex expression dynamically for the given tag.
+// It try's to exchange the digits with the onyDigits expression.
+func GetRegexExprForTag(tag string) (*regexp.Regexp, error) {
+	repl := numberRegex.ReplaceAllString(tag, onlyDigits)
+	return regexp.Compile(fmt.Sprintf("%s", repl))
 }
 
 // GetLatestTagWithRegexExpr filters valid tags for the given expression and sort those. The latest valid tag will be returned
@@ -61,7 +70,7 @@ func GetLatestTagWithRegexExpr(tags []string, regx *regexp.Regexp) (string, erro
 	}
 	sort.Sort(tagsToSort)
 	if tagsToSort == nil {
-		return "", fmt.Errorf("tags-analyzing: could not find any valid tags with pattern %s from tags %s", regx.String(), tags)
+		return "", fmt.Errorf("analyzing: could not find any valid tags with pattern %s from tags %s", regx.String(), tags)
 	}
 	return tagsToSort[len(tagsToSort)-1].complete, nil
 }
@@ -72,7 +81,7 @@ func getDigitsFromString(str string) ([]int, error) {
 	for _, strNumber := range found {
 		number, err := strconv.Atoi(strNumber)
 		if err != nil {
-			return nil, fmt.Errorf("tags-analyzing: could not get version numbers from tagInfo %s", str)
+			return nil, fmt.Errorf("analyzing: could not get version numbers from tagInfo %s", str)
 		}
 		convertedNumbers = append(convertedNumbers, number)
 	}

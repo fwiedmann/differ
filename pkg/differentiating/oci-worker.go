@@ -35,7 +35,7 @@ import (
 
 	"github.com/fwiedmann/differ/pkg/registry"
 
-	tagsanalyzer "github.com/fwiedmann/differ/pkg/tags-analyzing"
+	tagsanalyzer "github.com/fwiedmann/differ/pkg/analyzing"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/ratelimit"
 )
@@ -172,7 +172,7 @@ func (w *Worker) sendEventForEachStoredObjectIfNewerTagExits(allTagsFromRegistry
 }
 
 func (w *Worker) sendEventForStoredObjectIfNewerTagExits(img Image, allTagsFromRegistry []string) {
-	tagExpr, err := tagsanalyzer.GetRegexExprForTag(img.Tag)
+	tagExpr, err := tagsanalyzer.GetExactRegexExprForTag(img.Tag)
 	if err != nil {
 		log.Errorf("differentiate/oci-worker error: could not get a tag expression for Image %s with tag %s", img.GetNameWithRegistry(), img.Tag)
 		return

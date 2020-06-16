@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package tags_analyzing
+package analyzing
 
 import (
 	"reflect"
@@ -46,13 +46,13 @@ func TestGetRegexExprForTag(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetRegexExprForTag(tt.args.tag)
+			got, err := GetExactRegexExprForTag(tt.args.tag)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GetRegexExprForTag() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("GetExactRegexExprForTag() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetRegexExprForTag() got = %v, want %v", got, tt.want)
+				t.Errorf("GetExactRegexExprForTag() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -85,9 +85,9 @@ func TestGetLatestTagWithRegexExpr(t *testing.T) {
 			} else {
 				tagInput = tt.args.tags[len(tt.args.tags)-1]
 			}
-			regx, err := GetRegexExprForTag(tagInput)
+			regx, err := GetExactRegexExprForTag(tagInput)
 			if err != nil {
-				t.Errorf("GetRegexExprForTag() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("GetExactRegexExprForTag() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			got, err := GetLatestTagWithRegexExpr(tt.args.tags, regx)
