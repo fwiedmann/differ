@@ -26,40 +26,34 @@ package updating
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"io/ioutil"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/fwiedmann/differ/pkg/analyzing"
 )
 
-func NewFileUpdatingService(dir string, isFileValidToCheckForUpdatesFun func(name string) bool, logger logrus.Logger) (Service, error) {
-
+func NewFileUpdatingService(dir string, getFilesFunc func() ([]io.ReadWriter, error)) (Service, error) {
 	return &fileUpdatingService{
-		contextDir:                      dir,
-		isFileValidToCheckForUpdatesFun: isFileValidToCheckForUpdatesFun,
-		log:                             logger,
+		contextDir: dir,
+		getFiles:   getFilesFunc,
 	}, nil
 }
 
 type fileUpdatingService struct {
-	contextDir                      string
-	isFileValidToCheckForUpdatesFun func(name string) bool
-	log                             logrus.Logger
+	contextDir string
+	getFiles   func() ([]io.ReadWriter, error)
 }
 
 func (g *fileUpdatingService) Update(_ context.Context, image Image) (Count, error) {
-
 	expr, err := analyzing.GetRegexExprForTag(image.GetGetCompleteName())
 	if err != nil {
 		return 0, err
 	}
 
-	files, err := g.getAllValidFilesForUpdating()
+	files, err := g.getFiles()
 	if err != nil {
 		return 0, err
 	}
@@ -67,24 +61,7 @@ func (g *fileUpdatingService) Update(_ context.Context, image Image) (Count, err
 	return replaceImageInFilesByRegexExp(image, expr, files)
 }
 
-func (g *fileUpdatingService) getAllValidFilesForUpdating() ([]string, error) {
-	var files []string
-	err := filepath.Walk(g.contextDir, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
-		}
-
-		if !g.isFileValidToCheckForUpdatesFun(path) {
-			return nil
-		}
-
-		files = append(files, path)
-		return nil
-	})
-	return files, err
-}
-
-func replaceImageInFilesByRegexExp(image Image, regexExp *regexp.Regexp, files []string) (Count, error) {
+func replaceImageInFilesByRegexExp(image Image, regexExp *regexp.Regexp, files []io.ReadWriter) (Count, error) {
 	var count Count
 	for _, file := range files {
 		lineCount, err := replaceImageInFileByRegexExp(image, regexExp, file)
@@ -96,8 +73,8 @@ func replaceImageInFilesByRegexExp(image Image, regexExp *regexp.Regexp, files [
 	return count, nil
 }
 
-func replaceImageInFileByRegexExp(image Image, regexExp *regexp.Regexp, file string) (Count, error) {
-	content, err := ioutil.ReadFile(file)
+func replaceImageInFileByRegexExp(image Image, regexExp *regexp.Regexp, file io.ReadWriter) (Count, error) {
+	content, err := ioutil.ReadAll(file)
 	if err != nil {
 		return 0, err
 	}
@@ -106,12 +83,15 @@ func replaceImageInFileByRegexExp(image Image, regexExp *regexp.Regexp, file str
 	var count Count
 	for i, line := range lines {
 		updatedLine := regexExp.ReplaceAllString(line, image.GetGetCompleteName())
-
 		if line != updatedLine {
 			lines[i] = updatedLine
 			count++
 		}
-
 	}
-	return count, ioutil.WriteFile(file, []byte(strings.Join(lines, "\n")), 0600)
+
+	_, err = fmt.Fprint(file, []byte(strings.Join(lines, "\n")))
+	if err != nil {
+		return count, err
+	}
+	return count, nil
 }
