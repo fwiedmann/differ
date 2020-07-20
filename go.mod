@@ -19,7 +19,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	google.golang.org/appengine v1.6.2 // indirect
 	gopkg.in/yaml.v2 v2.3.0
-	k8s.io/api v0.18.5
+	k8s.io/api v0.18.6
 	k8s.io/apimachinery v0.18.6
 	k8s.io/client-go v0.18.5
 )
