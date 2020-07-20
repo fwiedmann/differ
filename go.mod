@@ -7,7 +7,7 @@ require (
 	github.com/go-git/go-git/v5 v5.1.0
 	github.com/go-playground/validator/v10 v10.3.0
 	github.com/golang/mock v1.4.3
-	github.com/google/go-github/v32 v32.0.0
+	github.com/google/go-github/v32 v32.1.0
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/prometheus/client_golang v1.7.1
 	github.com/sirupsen/logrus v1.6.0
