@@ -26,8 +26,6 @@ package updating
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"io/ioutil"
 	"regexp"
 	"strings"
@@ -35,18 +33,18 @@ import (
 	"github.com/fwiedmann/differ/pkg/analyzing"
 )
 
-func NewFileUpdatingService(dir string, getFilesFunc func() ([]io.ReadWriter, error)) (Service, error) {
+// NewFileUpdatingService init a new Service for updating files which may contain images which need to be updated
+func NewFileUpdatingService(getFilesFun func() ([]string, error)) Service {
 	return &fileUpdatingService{
-		contextDir: dir,
-		getFiles:   getFilesFunc,
-	}, nil
+		getFiles: getFilesFun,
+	}
 }
 
 type fileUpdatingService struct {
-	contextDir string
-	getFiles   func() ([]io.ReadWriter, error)
+	getFiles func() ([]string, error)
 }
 
+// Update will updates files with the given image. The returned Count type represents the count of how many times an image was replaced/updated in all files.
 func (g *fileUpdatingService) Update(_ context.Context, image Image) (Count, error) {
 	expr, err := analyzing.GetRegexExprForTag(image.GetGetCompleteName())
 	if err != nil {
@@ -57,11 +55,10 @@ func (g *fileUpdatingService) Update(_ context.Context, image Image) (Count, err
 	if err != nil {
 		return 0, err
 	}
-
 	return replaceImageInFilesByRegexExp(image, expr, files)
 }
 
-func replaceImageInFilesByRegexExp(image Image, regexExp *regexp.Regexp, files []io.ReadWriter) (Count, error) {
+func replaceImageInFilesByRegexExp(image Image, regexExp *regexp.Regexp, files []string) (Count, error) {
 	var count Count
 	for _, file := range files {
 		lineCount, err := replaceImageInFileByRegexExp(image, regexExp, file)
@@ -73,8 +70,8 @@ func replaceImageInFilesByRegexExp(image Image, regexExp *regexp.Regexp, files [
 	return count, nil
 }
 
-func replaceImageInFileByRegexExp(image Image, regexExp *regexp.Regexp, file io.ReadWriter) (Count, error) {
-	content, err := ioutil.ReadAll(file)
+func replaceImageInFileByRegexExp(image Image, regexExp *regexp.Regexp, file string) (Count, error) {
+	content, err := ioutil.ReadFile(file)
 	if err != nil {
 		return 0, err
 	}
@@ -89,7 +86,7 @@ func replaceImageInFileByRegexExp(image Image, regexExp *regexp.Regexp, file io.
 		}
 	}
 
-	_, err = fmt.Fprint(file, []byte(strings.Join(lines, "\n")))
+	err = ioutil.WriteFile(file, []byte(strings.Join(lines, "\n")), 0600)
 	if err != nil {
 		return count, err
 	}
