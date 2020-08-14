@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/antonfisher/nested-logrus-formatter v1.1.0
+	github.com/evanphx/json-patch v4.2.0+incompatible // indirect
 	github.com/go-git/go-git/v5 v5.1.0
 	github.com/go-playground/validator/v10 v10.3.0
 	github.com/golang/mock v1.4.4
@@ -19,7 +20,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	google.golang.org/appengine v1.6.2 // indirect
 	gopkg.in/yaml.v2 v2.3.0
-	k8s.io/api v0.18.6
-	k8s.io/apimachinery v0.18.6
-	k8s.io/client-go v0.18.6
+	k8s.io/api v0.18.8
+	k8s.io/apimachinery v0.18.8
+	k8s.io/client-go v0.18.8
 )
